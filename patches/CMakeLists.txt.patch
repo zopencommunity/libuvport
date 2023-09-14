@@ -1,0 +1,32 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 3e1797f5..0571bf70 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -20,7 +20,7 @@ include(CTest)
+ set(CMAKE_C_VISIBILITY_PRESET hidden)
+ set(CMAKE_C_STANDARD_REQUIRED ON)
+ set(CMAKE_C_EXTENSIONS ON)
+-set(CMAKE_C_STANDARD 90)
++set(CMAKE_C_STANDARD 11)
+ 
+ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+ 
+@@ -353,18 +353,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "OS390")
+        src/unix/os390.c
+        src/unix/os390-syscalls.c
+        src/unix/os390-proctitle.c)
+-  list(APPEND uv_cflags
+-       -q64
+-       -qascii
+-       -qexportall
+-       -qgonumber
+-       -qlongname
+-       -qlibansi
+-       -qfloat=IEEE
+-       -qtune=10
+-       -qarch=10
+-       -qasm
+-       -qasmlib=sys1.maclib:sys1.modgen)
+   find_library(ZOSLIB
+     NAMES zoslib
+     PATHS ${ZOSLIB_DIR}
