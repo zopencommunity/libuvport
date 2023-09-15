@@ -28,8 +28,8 @@ zopen_check_results()
 {
 chk="$1/$2_check.log"
 
-successes=$(grep -E "^ok$" ${chk} | wc -l)
-totalTests=$(grep -E "^not ok |^ok$" ${chk} | wc -l)
+successes=$(grep -E "^ok " ${chk} | wc -l)
+totalTests=$(grep -E "^not ok |^ok " ${chk} | wc -l)
 failures="$((totalTests-successes))"
 
   cat <<ZZ
