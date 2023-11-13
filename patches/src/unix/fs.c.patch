@@ -1,0 +1,13 @@
+diff --git a/src/unix/fs.c b/src/unix/fs.c
+index 891306da..cf14826e 100644
+--- a/src/unix/fs.c
++++ b/src/unix/fs.c
+@@ -82,7 +82,7 @@
+ # include <sys/statfs.h>
+ #endif
+ 
+-#if defined(__CYGWIN__) ||                                                    \
++#if defined(__CYGWIN__) || defined(__MVS__) ||                                \
+     (defined(__HAIKU__) && B_HAIKU_VERSION < B_HAIKU_VERSION_1_PRE_BETA_5) || \
+     (defined(__sun) && !defined(__illumos__))
+ #define preadv(fd, bufs, nbufs, off)                                          \

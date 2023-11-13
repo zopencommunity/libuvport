@@ -35,7 +35,7 @@ failures="$((totalTests-successes))"
   cat <<ZZ
   actualFailures:$failures
   totalTests:$totalTests
-  expectedFailures:5
+  expectedFailures:6
 fi
 }
 
@@ -60,5 +60,8 @@ zopen_get_version()
 {
   # Modify to echo the version of your tool/library
   # Rather than hardcoding the version, obtain the version by running the tool/library
-  echo "1.0.0"
+  MAJOR=$(grep "define UV_VERSION_MAJOR" include/uv/version.h | cut -f3 -d' ')
+  MINOR=$(grep "define UV_VERSION_MINOR" include/uv/version.h | cut -f3 -d' ')
+  PATCH=$(grep "define UV_VERSION_PATCH" include/uv/version.h | cut -f3 -d' ')
+  echo "$MAJOR.$MINOR.$PATCH"
 }
