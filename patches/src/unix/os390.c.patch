@@ -1,0 +1,20 @@
+diff --git a/src/unix/os390.c b/src/unix/os390.c
+index 1b277292..27ee3d3d 100644
+--- a/src/unix/os390.c
++++ b/src/unix/os390.c
+@@ -639,6 +639,7 @@ static int os390_regfileint(uv_fs_event_t* handle, char* path) {
+   _RFIS reg_struct;
+   int rc;
+ 
++  return 0;
+   ep = handle->loop->ep;
+   assert(ep->msg_queue != -1);
+ 
+@@ -750,6 +751,7 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
+   int events;
+   _RFIM msg;
+ 
++  return 0;
+   if (ep->msg_queue == -1)
+     return 0;
+ 

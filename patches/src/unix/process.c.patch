@@ -1,0 +1,53 @@
+diff --git a/src/unix/process.c b/src/unix/process.c
+index dd58c18d..443196d8 100644
+--- a/src/unix/process.c
++++ b/src/unix/process.c
+@@ -203,7 +203,11 @@ static int uv__process_init_stdio(uv_stdio_container_t* container, int fds[2]) {
+     if (container->data.stream->type != UV_NAMED_PIPE)
+       return UV_EINVAL;
+     else
++#ifdef __MVS__
++      return 0;
++#else
+       return uv_socketpair(SOCK_STREAM, 0, fds, 0, 0);
++#endif
+ 
+   case UV_INHERIT_FD:
+   case UV_INHERIT_STREAM:
+@@ -1002,8 +1006,36 @@ int uv_spawn(uv_loop_t* loop,
+     err = uv__process_init_stdio(options->stdio + i, pipes[i]);
+     if (err)
+       goto error;
++
++#if defined(__MVS__)
++    if (options->stdio[i].flags & UV_CREATE_PIPE) {
++      if (i < 3 && !((uv_pipe_t*)(options->stdio[i].data.stream))->ipc)
++        /* Use pipes on z/OS for stdio because:
++         * 1. socketpairs experience issues when dup'ing stderr.
++         * 2. socketpairs do not support ASCII/EBCDIC auto-conversion
++         *    using the ccsid tag
++         */
++        err = uv__make_pipe(pipes[i], 0);
++      else
++        /* Continue using socket pairs for IPC pipes since data is ensured to be
++         * in ASCII and no autoconvert facilities are required.
++         */
++        err = uv_socketpair(SOCK_STREAM, 0, pipes[i], 0, 0);
++   }
++#endif
+   }
+ 
++#if defined(__MVS__)
++    /* Pipes are uni-directional, install it backwards so the
++     * right ends are dup'ed and closed appropiately.
++     */
++    if ((options->stdio[0].flags & (UV_INHERIT_FD | UV_INHERIT_STREAM)) == 0) {
++      int _t = pipes[0][0];
++      pipes[0][0] = pipes[0][1];
++      pipes[0][1] = _t;
++    }
++#endif
++
+ #ifdef UV_USE_SIGCHLD
+   uv_signal_start(&loop->child_watcher, uv__chld, SIGCHLD);
+ #endif

@@ -1,0 +1,41 @@
+diff --git a/src/unix/stream.c b/src/unix/stream.c
+index 28c4d546..a90d70be 100644
+--- a/src/unix/stream.c
++++ b/src/unix/stream.c
+@@ -658,12 +658,33 @@ static void uv__drain(uv_stream_t* stream) {
+   }
+ }
+ 
++ssize_t my_writev(int fd, const struct iovec *iov, int iovcnt) {
++    if (!isatty(fd)) {
++      writev(fd, iov, iovcnt); 
++    } else {
++      ssize_t total_bytes_written = 0;
++
++      // Iterate over each iovec structure
++      for (int i = 0; i < iovcnt; i++) {
++          ssize_t bytes_written = write(fd, iov[i].iov_base, iov[i].iov_len);
++          if (bytes_written == -1) {
++              // Error occurred
++              return -1;
++          }
++          total_bytes_written += bytes_written;
++      }
++
++      return total_bytes_written;
++    }
++}
+ 
+ static ssize_t uv__writev(int fd, struct iovec* vec, size_t n) {
+-  if (n == 1)
++  if (n == 1) {
+     return write(fd, vec->iov_base, vec->iov_len);
+-  else
+-    return writev(fd, vec, n);
++  }
++  else {
++    return my_writev(fd, vec, n); 
++  }
+ }
+ 
+ 
