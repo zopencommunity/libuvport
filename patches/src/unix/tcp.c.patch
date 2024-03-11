@@ -1,5 +1,5 @@
 diff --git a/src/unix/tcp.c b/src/unix/tcp.c
-index 799fca77..94e995da 100644
+index 799fca77..b24003bc 100644
 --- a/src/unix/tcp.c
 +++ b/src/unix/tcp.c
 @@ -30,8 +30,8 @@
@@ -18,7 +18,7 @@ index 799fca77..94e995da 100644
    struct sockaddr_in6* a6;
    int rv;
 -#if defined(_AIX)
-+#if defined(_AIX) && !defined(__MVS__)
++#if defined(_AIX) || defined(__MVS__)
    /* AIX & IBM i do not have ifaddrs
     * so fallback to use uv_interface_addresses */
    uv_interface_address_t* interfaces;
