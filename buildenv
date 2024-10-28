@@ -2,6 +2,7 @@
 LIBUV_VERSION="1.48.0"
 
 export ZOPEN_STABLE_URL="https://github.com/libuv/libuv.git"
+export ZOPEN_CATEGORIES="library"
 export ZOPEN_STABLE_TAG="v${LIBUV_VERSION}"
 export ZOPEN_STABLE_DEPS="zoslib make cmake"
 export ZOPEN_DEV_URL="https://github.com/libuv/libuv.git"
