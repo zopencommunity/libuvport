@@ -1,0 +1,19 @@
+diff --git a/src/unix/tty.c b/src/unix/tty.c
+index d099bdb3..aac58d08 100644
+--- a/src/unix/tty.c
++++ b/src/unix/tty.c
+@@ -203,6 +203,14 @@ int uv_tty_init(uv_loop_t* loop, uv_tty_t* tty, int fd, int unused) {
+       return r;
+     }
+ 
++#if defined(__MVS__)
++    if (__getfdccsid(newfd) == 0) {
++      /* If untagged and unset, set ccsid to 1047 and enable autoconversion. */
++      struct f_cnvrt req = {SETCVTON, 0, 1047};
++      fcntl(newfd, F_CONTROL_CVT, &req);
++    }
++#endif
++
+     fd = newfd;
+   }
+ 

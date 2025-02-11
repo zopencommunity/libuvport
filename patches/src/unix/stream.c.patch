@@ -1,41 +1,120 @@
 diff --git a/src/unix/stream.c b/src/unix/stream.c
-index 28c4d546..a90d70be 100644
+index 28c4d546..57bcde8d 100644
 --- a/src/unix/stream.c
 +++ b/src/unix/stream.c
-@@ -658,12 +658,33 @@ static void uv__drain(uv_stream_t* stream) {
-   }
+@@ -113,6 +113,10 @@ void uv__stream_init(uv_loop_t* loop,
+   stream->select = NULL;
+ #endif /* defined(__APPLE_) */
+ 
++#if defined(__MVS__)
++  stream->need_drain = 0;
++#endif
++
+   uv__io_init(&stream->io_watcher, uv__stream_io, -1);
  }
  
-+ssize_t my_writev(int fd, const struct iovec *iov, int iovcnt) {
-+    if (!isatty(fd)) {
-+      writev(fd, iov, iovcnt); 
-+    } else {
-+      ssize_t total_bytes_written = 0;
-+
-+      // Iterate over each iovec structure
-+      for (int i = 0; i < iovcnt; i++) {
-+          ssize_t bytes_written = write(fd, iov[i].iov_base, iov[i].iov_len);
-+          if (bytes_written == -1) {
-+              // Error occurred
-+              return -1;
-+          }
-+          total_bytes_written += bytes_written;
-+      }
-+
-+      return total_bytes_written;
-+    }
-+}
+@@ -626,6 +630,9 @@ int uv_listen(uv_stream_t* stream, int backlog, uv_connection_cb cb) {
+ static void uv__drain(uv_stream_t* stream) {
+   uv_shutdown_t* req;
+   int err;
++#if defined(__MVS__)
++  struct stat st;
++#endif
  
- static ssize_t uv__writev(int fd, struct iovec* vec, size_t n) {
--  if (n == 1)
-+  if (n == 1) {
-     return write(fd, vec->iov_base, vec->iov_len);
--  else
--    return writev(fd, vec, n);
-+  }
-+  else {
-+    return my_writev(fd, vec, n); 
-+  }
+   assert(uv__queue_empty(&stream->write_queue));
+   if (!(stream->flags & UV_HANDLE_CLOSING)) {
+@@ -648,7 +655,13 @@ static void uv__drain(uv_stream_t* stream) {
+     if (stream->flags & UV_HANDLE_CLOSING)
+       /* The user destroyed the stream before we got to do the shutdown. */
+       err = UV_ECANCELED;
++#if defined(__MVS__)
++    else if (fstat(uv__stream_fd(stream), &st) != -1 &&
++             (S_ISSOCK(st.st_mode)) &&
++             shutdown(uv__stream_fd(stream), SHUT_WR))
++#else
+     else if (shutdown(uv__stream_fd(stream), SHUT_WR))
++#endif
+       err = UV__ERR(errno);
+     else /* Success. */
+       stream->flags |= UV_HANDLE_SHUT;
+@@ -1089,6 +1102,23 @@ static void uv__read(uv_stream_t* stream) {
+       } else if (errno == ECONNRESET && stream->type == UV_NAMED_PIPE) {
+         uv__stream_eof(stream, &buf);
+         return;
++#elif defined(__MVS__)
++      } else if (errno == ECONNRESET && stream->type == UV_TCP &&
++                 (uv__is_stream_shutting(stream) ||
++                  stream->flags & UV_HANDLE_TCP_NODELAY)) {
++        /* TODO(itodorov) - zos: On z/OS, when the other end of the socket
++        disconnects and the stream ends, read returns -1 and sets ECONNRESET. However, in
++        the same scenario, on Linux, read returns 0 and does not issue an ECONNRESET.
++        This could be a difference in the read implementation on z/OS.  AIX has a similar issue:
++        https://github.com/libuv/libuv/pull/2602#issuecomment-574868230.
++        Instead of asking the user to set the keep-alive header as in AIX, we send an EOF in
++        place of ECONNRESET under the conditions that the stream is shutting down or
++        if TCP_NODELAY is set then also send an EOF instead.
++        In the future, once POLLRDHUP is implemented, this could be handled via the POLLRDHUP
++        poll event and then we can check for the UV_DISCONNECT flag.
++        */
++        uv__stream_eof(stream, &buf);
++        return;
+ #endif
+       } else {
+         /* Error. User should call uv_close(). */
+@@ -1174,8 +1204,13 @@ int uv_shutdown(uv_shutdown_t* req, uv_stream_t* stream, uv_shutdown_cb cb) {
+   stream->shutdown_req = req;
+   stream->flags &= ~UV_HANDLE_WRITABLE;
+ 
++#if defined(__MVS__)
++  uv__io_start(stream->loop, &stream->io_watcher, POLLOUT);
++  uv__stream_osx_interrupt_select(stream);
++#else
+   if (uv__queue_empty(&stream->write_queue))
+     uv__io_feed(stream->loop, &stream->io_watcher);
++#endif
+ 
+   return 0;
  }
+@@ -1202,6 +1237,19 @@ static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
+   if (events & (POLLIN | POLLERR | POLLHUP))
+     uv__read(stream);
  
++#ifdef __MVS__
++  /* TODO(alexy) - zos: z/OS poll does not set event POLLHUP when socket end
++   * disconnects. So we rely on flag UV_HANDLE_READ_EOF which is set when we
++   * read 0 bytes. However this workaround creates an issue when POLLHUP is
++   * still set when socket is not disconnected that causes the stream being
++   * drained prematurely, which caused issues like immediate callbacks to call
++   * later than it should. Should revisit after POLLHUP event is implemented for
++   * socket on z/OS.
++   */
++  if (!(events & POLLHUP) && stream->flags & UV_HANDLE_READ_EOF)
++    events |= POLLHUP;
++#endif
++
+   if (uv__stream_fd(stream) == -1)
+     return;  /* read_cb closed stream. */
  
+@@ -1222,6 +1270,22 @@ static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
+   if (uv__stream_fd(stream) == -1)
+     return;  /* read_cb closed stream. */
+ 
++#if defined(__MVS__)
++  /* TODO(alexy) - zos: this delays the drain for streams that only have POLLIN
++   * flag set, it is a workaround for the POLLHUP issue described above. The
++   * proper fix for the issue should be implementing POLLHUP flags for socket
++   * on z/OS as the behavior of draining prematurely is incorrect. Note that
++   * this workaround changes the execution order for the poll phase and may
++   * have potential unintended side effects, such as performance degradation.
++   */
++  if ((events & (POLLIN | POLLHUP)) == (POLLIN | POLLHUP) &&
++      !stream->need_drain) {
++    uv__io_start(stream->loop, &stream->io_watcher, POLLIN);
++    stream->need_drain = 1;
++    return;
++  }
++#endif
++
+   if (events & (POLLOUT | POLLERR | POLLHUP)) {
+     uv__write(stream);
+     uv__write_callbacks(stream);

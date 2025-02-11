@@ -1,20 +1,144 @@
 diff --git a/src/unix/os390.c b/src/unix/os390.c
-index 1b277292..27ee3d3d 100644
+index 1b277292..832e7ad4 100644
 --- a/src/unix/os390.c
 +++ b/src/unix/os390.c
-@@ -639,6 +639,7 @@ static int os390_regfileint(uv_fs_event_t* handle, char* path) {
-   _RFIS reg_struct;
-   int rc;
+@@ -31,7 +31,6 @@
+ #include <sys/msg.h>
+ #include <sys/resource.h>
+ #include "zos-base.h"
+-#include "zos-sys-info.h"
+ #if defined(__clang__)
+ #include "csrsic.h"
+ #else
+@@ -116,6 +115,7 @@ int uv__platform_loop_init(uv_loop_t* loop) {
  
-+  return 0;
+   ep = epoll_create1(0);
+   loop->ep = ep;
++  loop->backend_fd = ep->msg_queue;
+   if (ep == NULL)
+     return UV__ERR(errno);
+ 
+@@ -126,6 +126,7 @@ int uv__platform_loop_init(uv_loop_t* loop) {
+ void uv__platform_loop_delete(uv_loop_t* loop) {
+   if (loop->ep != NULL) {
+     epoll_queue_close(loop->ep);
++    uv__free(loop->ep);
+     loop->ep = NULL;
+   }
+ }
+@@ -602,6 +603,9 @@ void uv__platform_invalidate_fd(uv_loop_t* loop, int fd) {
+         events[i].fd = -1;
+ 
+   /* Remove the file descriptor from the epoll. */
++  dummy.events = 0;
++  dummy.fd = fd;
++  dummy.is_msg = 0;
+   if (loop->ep != NULL)
+     epoll_ctl(loop->ep, EPOLL_CTL_DEL, fd, &dummy);
+ }
+@@ -692,6 +696,13 @@ int uv__fs_event_stop(uv_fs_event_t* handle) {
+   if (!uv__is_active(handle))
+     return 0;
+ 
++  if (handle->path != NULL && access(handle->path, F_OK) != 0) {
++    uv__free(handle->path);
++    handle->path = NULL;
++    uv__handle_stop(handle);
++    return 0;
++  }
++
    ep = handle->loop->ep;
    assert(ep->msg_queue != -1);
  
-@@ -750,6 +751,7 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
-   int events;
-   _RFIM msg;
+@@ -755,26 +766,47 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
  
-+  return 0;
-   if (ep->msg_queue == -1)
+   msglen = msgrcv(ep->msg_queue, &msg, sizeof(msg), 0, IPC_NOWAIT);
+ 
+-  if (msglen == -1 && errno == ENOMSG)
+-    return 0;
+-
+   if (msglen == -1)
+-    abort();
++    if (errno == ENOMSG)
++      return 0;
++    else if (errno == EINVAL)
++      return -1;
++    else
++      abort();
+ 
+   events = 0;
+   if (msg.__rfim_event == _RFIM_ATTR || msg.__rfim_event == _RFIM_WRITE)
+     events = UV_CHANGE;
+   else if (msg.__rfim_event == _RFIM_RENAME || msg.__rfim_event == _RFIM_UNLINK)
+     events = UV_RENAME;
+-  else if (msg.__rfim_event == 156)
+-    /* TODO(gabylb): zos - this event should not happen, need to investigate.
++  else if (msg.__rfim_event == 156) {
++    /* TODO(gabylb): zos - investigate why this event is occuring as it should
++     * not happen based on https://github.ibm.com/open-z/node-build/issues/199.
++     *
++     * This (undocumented?) event seems to occur when the watched file
++     * is [re]moved, or an eeitor (like vim) renames then creates the file
++     * on save (for vim, that's when backupcopy=no|auto), which causes
++     * __w_pioctl to fail as the file wasn't yet created; the sleep is
++     * to help resolve the rename-create issue.
++     *
++     * This is a temporary workaround because on extremely busy systems,
++     * timeouts cannot guarantee deterministic behaviour. Since the inode
++     * number changes, they are technically NOT the same file. Thus this kind
++     * of monitoring is not really valid. If there is a real issue, the
++     * application itself should be adjusted to deal with time gap. The current
++     * monitoring method has a gap, when inotify becomes availlable, we should
++     * switch to it.
+      *
+-     * This event seems to occur when the watched file is [re]moved, or an
+-     * editor (like vim) renames then creates the file on save (for vim, that's
+-     * when backupcopy=no|auto).
++     * See: https://github.ibm.com/open-z/node-build/issues/656
++     *
++     * TODO: zos - resolve this issue on z/OS for V2R4 if possible, and
++     * remove entirely when V2R5 is the min supported level and only inotify
++     * is used. This should not be upstreamed.
+      */
++    struct timespec timeout = { 0, 1000000 }; /* 1ms. */
+     events = UV_RENAME;
+-  else
++    nanosleep(&timeout, NULL);
++  } else
+     /* Some event that we are not interested in. */
      return 0;
  
+@@ -788,7 +820,9 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
+   assert((handle->flags & UV_HANDLE_CLOSED) == 0);
+   if (uv__is_closing(handle)) {
+     uv__handle_stop(handle);
+-    uv__make_close_pending((uv_handle_t*) handle);
++    if (access(handle->path, F_OK) == 0) {
++       uv__make_close_pending((uv_handle_t*) handle);
++    }
+     return 0;
+   } else if (handle->path == NULL) {
+     /* _RFIS_UNREG returned EALREADY. */
+@@ -852,6 +886,7 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
+ 
+     e.events = w->pevents;
+     e.fd = w->fd;
++    e.is_msg = 0;
+ 
+     if (w->events == 0)
+       op = EPOLL_CTL_ADD;
+@@ -970,7 +1005,13 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
+ 
+       ep = loop->ep;
+       if (pe->is_msg) {
+-        os390_message_queue_handler(ep);
++        if (os390_message_queue_handler(ep) == -1) {
++          /* The user has deleted the System V message queue. Highly likely
++           * that the process is being shut down. So stop listening to it.
++           */
++          epoll_ctl(loop->ep, EPOLL_CTL_DEL, ep->msg_queue, pe);
++          loop->backend_fd = -1;
++        }
+         nevents++;
+         continue;
+       }

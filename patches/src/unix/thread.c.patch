@@ -1,0 +1,25 @@
+diff --git a/src/unix/thread.c b/src/unix/thread.c
+index f05e6fe0..0f6564de 100644
+--- a/src/unix/thread.c
++++ b/src/unix/thread.c
+@@ -35,6 +35,7 @@
+ #ifdef __MVS__
+ #include <sys/ipc.h>
+ #include <sys/sem.h>
++#include "zos-semaphore.h"
+ #endif
+ 
+ #if defined(__GLIBC__) && !defined(__UCLIBC__)
+@@ -515,11 +516,7 @@ static void glibc_version_check(void) {
+       atoi(version + 2) < 21;
+ }
+ 
+-#elif defined(__MVS__)
+-
+-#define platform_needs_custom_semaphore 1
+-
+-#else /* !defined(__GLIBC__) && !defined(__MVS__) */
++#else /* !defined(__GLIBC__) */
+ 
+ #define platform_needs_custom_semaphore 0
+ 

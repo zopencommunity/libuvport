@@ -1,0 +1,13 @@
+diff --git a/test/test-get-passwd.c b/test/test-get-passwd.c
+index b1e76200..8d22cd3b 100644
+--- a/test/test-get-passwd.c
++++ b/test/test-get-passwd.c
+@@ -138,6 +138,8 @@ TEST_IMPL(get_passwd2) {
+ #if defined(__PASE__)
+   // uid 0 is qsecofr on IBM i
+   ASSERT_STR_EQ(pwd2.username, "qsecofr");
++#elif defined(__MVS__)
++  ASSERT_STR_EQ(pwd2.username, "BPXROOT");
+ #else
+   ASSERT_STR_EQ(pwd2.username, "root");
+ #endif

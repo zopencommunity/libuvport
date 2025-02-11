@@ -1,0 +1,15 @@
+diff --git a/src/uv-common.c b/src/uv-common.c
+index 2200fe3f..a379c8f9 100644
+--- a/src/uv-common.c
++++ b/src/uv-common.c
+@@ -37,6 +37,10 @@
+ # include <sys/un.h> /* AF_UNIX, sockaddr_un */
+ #endif
+ 
++#if defined(__MVS__)
++// For uv__os390_cleanup(), see also TODO below:
++# include "unix/os390-syscalls.h"
++#endif
+ 
+ typedef struct {
+   uv_malloc_func local_malloc;

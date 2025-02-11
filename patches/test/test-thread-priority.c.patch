@@ -1,0 +1,23 @@
+diff --git a/test/test-thread-priority.c b/test/test-thread-priority.c
+index 0aaf2977..8ae2deda 100644
+--- a/test/test-thread-priority.c
++++ b/test/test-thread-priority.c
+@@ -45,6 +45,10 @@ static void simple_task(void *args) {
+ }
+ 
+ TEST_IMPL(thread_priority) {
++#ifdef __MVS__
++  RETURN_SKIP("Thread priority cannot be changed on z/OS.");
++  return 0;
++#else
+   int priority;
+ #ifndef _WIN32
+   int min;
+@@ -102,4 +106,5 @@ TEST_IMPL(thread_priority) {
+   uv_sem_destroy(&sem);
+ 
+   return 0;
+-}
+\ No newline at end of file
++#endif // __MVS__
++}
