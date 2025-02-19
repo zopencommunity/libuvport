@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 5e8e0166..9b837e14 100644
+index 5e8e0166..08db4772 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -20,7 +20,7 @@ include(CTest)
@@ -37,7 +37,7 @@ index 5e8e0166..9b837e14 100644
 +    -fzos-le-char-mode=ascii
 +    -m64
 +    -mzos-target=zosv2r4
-+    -march=arch13)
++    -march=arch10)
  endif()
  
  if(CMAKE_SYSTEM_NAME STREQUAL "OS400")
