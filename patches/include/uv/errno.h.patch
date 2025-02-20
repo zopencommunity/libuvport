@@ -1,0 +1,17 @@
+diff --git a/include/uv/errno.h b/include/uv/errno.h
+index 127278ef..8c2fb683 100644
+--- a/include/uv/errno.h
++++ b/include/uv/errno.h
+@@ -302,6 +302,12 @@
+ # define UV__ENOTSUP (-4049)
+ #endif
+ 
++#if defined(EOPNOTSUPP) && !defined(_WIN32)
++# define UV__EOPNOTSUPP UV__ERR(EOPNOTSUPP)
++#else
++# define UV__EOPNOTSUPP (-1112)
++#endif
++
+ #if defined(EPERM) && !defined(_WIN32)
+ # define UV__EPERM UV__ERR(EPERM)
+ #else

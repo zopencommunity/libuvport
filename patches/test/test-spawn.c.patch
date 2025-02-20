@@ -1,0 +1,59 @@
+diff --git a/test/test-spawn.c b/test/test-spawn.c
+index 6a848747..ce0c5a43 100644
+--- a/test/test-spawn.c
++++ b/test/test-spawn.c
+@@ -1091,6 +1091,54 @@ TEST_IMPL(kill) {
+ }
+ 
+ 
++TEST_IMPL(spawn_closed_process_all_stdio) {
++  uv_pipe_t in, out, err;
++  uv_write_t write_req;
++  uv_buf_t buf;
++  uv_stdio_container_t stdio[3];
++  static char buffer[] = "hello-from-spawn_stdin\n";
++
++  init_process_options("spawn_helper3", exit_cb);
++
++  uv_pipe_init(uv_default_loop(), &in, 0);
++  uv_pipe_init(uv_default_loop(), &out, 0);
++  uv_pipe_init(uv_default_loop(), &err, 0);
++  options.stdio = stdio;
++  options.stdio[0].flags = UV_CREATE_PIPE | UV_READABLE_PIPE;
++  options.stdio[0].data.stream = (uv_stream_t*) &in;
++  options.stdio[1].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
++  options.stdio[1].data.stream = (uv_stream_t*) &out;
++  options.stdio[2].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
++  options.stdio[2].data.stream = (uv_stream_t*) &err;
++  options.stdio_count = 3;
++
++  /* Close all process stdio */
++  close(0);
++  close(1);
++  close(2);
++
++  ASSERT_EQ(uv_spawn(uv_default_loop(), &process, &options), 0);
++
++  buf = uv_buf_init(buffer, sizeof(buffer));
++  ASSERT_EQ(uv_write(&write_req, (uv_stream_t*) &in, &buf, 1, write_cb), 0);
++
++  ASSERT_EQ(uv_read_start((uv_stream_t*) &out, on_alloc, on_read), 0);
++
++  ASSERT_EQ(uv_read_start((uv_stream_t*) &err, on_alloc, on_read), 0);
++
++  ASSERT_EQ(exit_cb_called, 0);
++
++  ASSERT_EQ(uv_run(uv_default_loop(), UV_RUN_DEFAULT), 0);
++
++  ASSERT_EQ(exit_cb_called, 1);
++  ASSERT_EQ(close_cb_called, 4); /* process, child stdio x 3 */
++  ASSERT_STR_EQ(output, "hello-from-spawn_stdin\n");
++
++  MAKE_VALGRIND_HAPPY(uv_default_loop());
++  return 0;
++}
++
++
+ #ifdef _WIN32
+ TEST_IMPL(spawn_detect_pipe_name_collisions_on_windows) {
+   int r;

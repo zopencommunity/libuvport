@@ -1,0 +1,159 @@
+diff --git a/test/test-get-currentexe.c b/test/test-get-currentexe.c
+index c813d3a5..d03a4b24 100644
+--- a/test/test-get-currentexe.c
++++ b/test/test-get-currentexe.c
+@@ -30,19 +30,33 @@
+ #define PATHMAX 4096
+ extern char executable_path[];
+ 
+-TEST_IMPL(get_currentexe) {
+-/* TODO(gengjiawen): Fix test on QEMU. */
+-#if defined(__QEMU__)
+-  RETURN_SKIP("Test does not currently work in QEMU");
+-#endif
+-#if defined(__OpenBSD__)
+-  RETURN_SKIP("Test does not currently work in OpenBSD");
+-#endif
++static void create_dir(const char *name) {
++  int r;
++  uv_fs_t req;
++  r = uv_fs_mkdir(NULL, &req, name, 0755, NULL);
++  ASSERT(r == 0 || r == UV_EEXIST);
++  uv_fs_req_cleanup(&req);
++}
++
++static void remove_dir(const char *name) {
++  int r;
++  uv_fs_t req;
++  r = uv_fs_rmdir(NULL, &req, name, NULL);
++  ASSERT(r == 0 || r == UV_ENOENT);
++  uv_fs_req_cleanup(&req);
++}
++
++static void exit_cb(uv_process_t *process, int64_t status, int signo) {
++  ASSERT(status == 0);
++  ASSERT(signo == 0);
++  uv_close((uv_handle_t*) process, NULL);
++}
+ 
++int test_get_currentexe_impl(int is_child) {
+   char buffer[PATHMAX];
+   char path[PATHMAX];
+   size_t size;
+-  char* match;
++  char *match;
+   int r;
+ 
+   size = sizeof(buffer) / sizeof(buffer[0]);
+@@ -52,7 +66,11 @@ TEST_IMPL(get_currentexe) {
+ #ifdef _WIN32
+   snprintf(path, sizeof(path), "%s", executable_path);
+ #else
+-  ASSERT_NOT_NULL(realpath(executable_path, path));
++  if (is_child) {
++    ASSERT_NOT_NULL(realpath(getenv("UV_TEST_PARENT_EXEPATH"), path));
++  } else {
++    ASSERT_NOT_NULL(realpath(executable_path, path));
++  }
+ #endif
+ 
+   match = strstr(buffer, path);
+@@ -107,3 +125,98 @@ TEST_IMPL(get_currentexe) {
+   ASSERT_EQ(size, strlen(buffer));
+   return 0;
+ }
++
++TEST_IMPL(get_currentexe) {
++/* TODO(gengjiawen): Fix test on QEMU. */
++#if defined(__QEMU__)
++  RETURN_SKIP("Test does not currently work in QEMU");
++#endif
++#if defined(__OpenBSD__)
++  RETURN_SKIP("Test does not currently work in OpenBSD");
++#endif
++
++  return test_get_currentexe_impl(0);
++}
++
++TEST_IMPL(get_currentexe_dir) {
++/* TODO(gengjiawen): Fix test on QEMU. */
++#if defined(__QEMU__)
++  RETURN_SKIP("Test does not currently work in QEMU");
++#endif
++#if defined(__OpenBSD__)
++  RETURN_SKIP("Test does not currently work in OpenBSD");
++#endif
++
++  /* Verify that uv_exepath returns the correct executable path if a
++   * directory of the same name exists in the PATH environment variable.
++   */
++  char path[PATHMAX];
++  char path_dir[PATHMAX];
++  char path_env[PATHMAX];
++  char tmp_dir_path[PATHMAX];
++  char tmp_dir[PATHMAX];
++  char executable[PATHMAX];
++  char *prev_path_env;
++  int r;
++  const char *test_dir = "/test-dir";
++
++  ASSERT_NOT_NULL(realpath(executable_path, path));
++
++  /* Create parent directory's path of test directory */
++  strcpy(tmp_dir_path, path);
++  char *last = strrchr(tmp_dir_path, '/');
++  ASSERT_NOT_NULL(last);
++  *last = '\0';
++  ASSERT_GT(PATHMAX - strlen(tmp_dir_path), strlen(test_dir));
++  strcpy(executable, last+1);
++  strcpy(path_dir, tmp_dir_path);
++  strcat(tmp_dir_path, test_dir);
++
++  /* Create test directory's path with name same as the executable */
++  r = snprintf(tmp_dir, sizeof(tmp_dir), "%s/%s", tmp_dir_path, executable);
++  ASSERT_GE(r, 0);
++  ASSERT_LT(r, sizeof(tmp_dir));
++
++  /* Add parent directory's path to PATH */
++  prev_path_env = getenv("PATH");
++  ASSERT_NOT_NULL(prev_path_env);
++  r = snprintf(path_env, sizeof(path_env), "%s:%s:%s", tmp_dir_path, path_dir, prev_path_env);
++  ASSERT_GE(r, 0);
++  ASSERT_LT(r, sizeof(path_env));
++  r = uv_os_setenv("PATH", path_env);
++  ASSERT_EQ(r, 0);
++  r = uv_os_setenv("UV_TEST_PARENT_EXEPATH", executable_path);
++  ASSERT_EQ(r, 0);
++
++  /* Setup */
++  remove_dir(tmp_dir);
++  remove_dir(tmp_dir_path);
++  create_dir(tmp_dir_path);
++  create_dir(tmp_dir);
++
++  uv_process_t process;
++  uv_process_options_t options;
++  char *args[3];
++
++  args[0] = executable;
++  args[1] = "get_currentexe_helper";
++  args[2] = NULL;
++
++  memset(&options, 0, sizeof(options));
++  options.file = path;
++  options.args = args;
++  options.exit_cb = exit_cb;
++
++  r = uv_spawn(uv_default_loop(), &process, &options);
++  ASSERT_EQ(r, 0);
++
++  r = uv_run(uv_default_loop(), UV_RUN_DEFAULT);
++  ASSERT_EQ(r, 0);
++
++  /* Cleanup */
++  remove_dir(tmp_dir);
++  remove_dir(tmp_dir_path);
++
++  MAKE_VALGRIND_HAPPY(uv_default_loop());
++  return r;
++}

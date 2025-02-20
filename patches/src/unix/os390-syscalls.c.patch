@@ -1,8 +1,8 @@
 diff --git a/src/unix/os390-syscalls.c b/src/unix/os390-syscalls.c
-index 7f90c270..e4744b9c 100644
+index 7f90c270..2612de82 100644
 --- a/src/unix/os390-syscalls.c
 +++ b/src/unix/os390-syscalls.c
-@@ -149,8 +149,23 @@ static void init_message_queue(uv__os390_epoll* lst) {
+@@ -149,8 +149,22 @@ static void init_message_queue(uv__os390_epoll* lst) {
  
    /* initialize message queue */
    lst->msg_queue = msgget(IPC_PRIVATE, 0600 | IPC_CREAT);
@@ -23,11 +23,10 @@ index 7f90c270..e4744b9c 100644
 +    }
      abort();
 +  }
-+
  
    /*
       On z/OS, the message queue will be affiliated with the process only
-@@ -158,12 +173,17 @@ static void init_message_queue(uv__os390_epoll* lst) {
+@@ -158,12 +172,17 @@ static void init_message_queue(uv__os390_epoll* lst) {
       can be queried for all message queues belonging to our process id.
    */
    msg.header = 1;
@@ -47,7 +46,7 @@ index 7f90c270..e4744b9c 100644
  }
  
  
-@@ -204,9 +224,6 @@ static void epoll_init(void) {
+@@ -204,9 +223,6 @@ static void epoll_init(void) {
    uv__queue_init(&global_epoll_queue);
    if (uv_mutex_init(&global_epoll_lock))
      abort();
@@ -57,7 +56,7 @@ index 7f90c270..e4744b9c 100644
  }
  
  
-@@ -240,12 +257,21 @@ int epoll_ctl(uv__os390_epoll* lst,
+@@ -240,12 +256,21 @@ int epoll_ctl(uv__os390_epoll* lst,
    uv_mutex_lock(&global_epoll_lock);
  
    if (op == EPOLL_CTL_DEL) {
@@ -84,3 +83,101 @@ index 7f90c270..e4744b9c 100644
    } else if (op == EPOLL_CTL_ADD) {
  
      /* Resizing to 'fd + 1' would expand the list to contain at least
+@@ -440,97 +465,3 @@ char* mkdtemp(char* path) {
+ 
+   return path;
+ }
+-
+-
+-ssize_t os390_readlink(const char* path, char* buf, size_t len) {
+-  ssize_t rlen;
+-  ssize_t vlen;
+-  ssize_t plen;
+-  char* delimiter;
+-  char old_delim;
+-  char* tmpbuf;
+-  char realpathstr[PATH_MAX + 1];
+-
+-  tmpbuf = uv__malloc(len + 1);
+-  if (tmpbuf == NULL) {
+-    errno = ENOMEM;
+-    return -1;
+-  }
+-
+-  rlen = readlink(path, tmpbuf, len);
+-  if (rlen < 0) {
+-    uv__free(tmpbuf);
+-    return rlen;
+-  }
+-
+-  if (rlen < 3 || strncmp("/$", tmpbuf, 2) != 0) {
+-    /* Straightforward readlink. */
+-    memcpy(buf, tmpbuf, rlen);
+-    uv__free(tmpbuf);
+-    return rlen;
+-  }
+-
+-  /*
+-   * There is a parmlib variable at the beginning
+-   * which needs interpretation.
+-   */
+-  tmpbuf[rlen] = '\0';
+-  delimiter = strchr(tmpbuf + 2, '/');
+-  if (delimiter == NULL)
+-    /* No slash at the end */
+-    delimiter = strchr(tmpbuf + 2, '\0');
+-
+-  /* Read real path of the variable. */
+-  old_delim = *delimiter;
+-  *delimiter = '\0';
+-  if (realpath(tmpbuf, realpathstr) == NULL) {
+-    uv__free(tmpbuf);
+-    return -1;
+-  }
+-
+-  /* realpathstr is not guaranteed to end with null byte.*/
+-  realpathstr[PATH_MAX] = '\0';
+-
+-  /* Reset the delimiter and fill up the buffer. */
+-  *delimiter = old_delim;
+-  plen = strlen(delimiter);
+-  vlen = strlen(realpathstr);
+-  rlen = plen + vlen;
+-  if (rlen > len) {
+-    uv__free(tmpbuf);
+-    errno = ENAMETOOLONG;
+-    return -1;
+-  }
+-  memcpy(buf, realpathstr, vlen);
+-  memcpy(buf + vlen, delimiter, plen);
+-
+-  /* Done using temporary buffer. */
+-  uv__free(tmpbuf);
+-
+-  return rlen;
+-}
+-
+-
+-int sem_init(UV_PLATFORM_SEM_T* semid, int pshared, unsigned int value) {
+-  UNREACHABLE();
+-}
+-
+-
+-int sem_destroy(UV_PLATFORM_SEM_T* semid) {
+-  UNREACHABLE();
+-}
+-
+-
+-int sem_post(UV_PLATFORM_SEM_T* semid) {
+-  UNREACHABLE();
+-}
+-
+-
+-int sem_trywait(UV_PLATFORM_SEM_T* semid) {
+-  UNREACHABLE();
+-}
+-
+-
+-int sem_wait(UV_PLATFORM_SEM_T* semid) {
+-  UNREACHABLE();
+-}

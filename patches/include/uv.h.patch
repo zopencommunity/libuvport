@@ -1,0 +1,12 @@
+diff --git a/include/uv.h b/include/uv.h
+index a62b3fa6..084e35ad 100644
+--- a/include/uv.h
++++ b/include/uv.h
+@@ -132,6 +132,7 @@ struct uv__queue {
+   XX(ENOTSOCK, "socket operation on non-socket")                              \
+   XX(ENOTSUP, "operation not supported on socket")                            \
+   XX(EOVERFLOW, "value too large for defined data type")                      \
++  XX(EOPNOTSUPP, "operation not supported on socket")                         \
+   XX(EPERM, "operation not permitted")                                        \
+   XX(EPIPE, "broken pipe")                                                    \
+   XX(EPROTO, "protocol error")                                                \

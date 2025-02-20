@@ -1,0 +1,15 @@
+diff --git a/docs/src/fs.rst b/docs/src/fs.rst
+index 891ee74c..8354c7b1 100644
+--- a/docs/src/fs.rst
++++ b/docs/src/fs.rst
+@@ -420,10 +420,6 @@ API
+ 
+     Equivalent to :man:`utime(2)`, :man:`futimes(3)` and :man:`lutimes(3)` respectively.
+ 
+-    .. note::
+-      z/OS: `uv_fs_lutime()` is not implemented for z/OS. It can still be called but will return
+-      ``UV_ENOSYS``.
+-
+     .. note::
+       AIX: `uv_fs_futime()` and `uv_fs_lutime()` functions only work for AIX 7.1 and newer.
+       They can still be called on older versions but will return ``UV_ENOSYS``.

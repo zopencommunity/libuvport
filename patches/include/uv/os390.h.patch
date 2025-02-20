@@ -1,0 +1,21 @@
+diff --git a/include/uv/os390.h b/include/uv/os390.h
+index 0267d74c..c4c5eb26 100644
+--- a/include/uv/os390.h
++++ b/include/uv/os390.h
+@@ -22,7 +22,7 @@
+ #ifndef UV_MVS_H
+ #define UV_MVS_H
+ 
+-#define UV_PLATFORM_SEM_T long
++#include "zos-semaphore.h"
+ 
+ #define UV_PLATFORM_LOOP_FIELDS                                               \
+   void* ep;                                                                   \
+@@ -30,4 +30,7 @@
+ #define UV_PLATFORM_FS_EVENT_FIELDS                                           \
+   char rfis_rftok[8];                                                         \
+ 
++#define UV_STREAM_PRIVATE_PLATFORM_FIELDS                                     \
++  int need_drain;                                                             \
++
+ #endif /* UV_MVS_H */

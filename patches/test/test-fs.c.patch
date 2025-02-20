@@ -1,0 +1,17 @@
+diff --git a/test/test-fs.c b/test/test-fs.c
+index fe78117b..fdba95c3 100644
+--- a/test/test-fs.c
++++ b/test/test-fs.c
+@@ -2849,10 +2849,9 @@ TEST_IMPL(fs_lutime) {
+   req.data = &checkme;
+ 
+   r = uv_fs_lutime(NULL, &req, symlink_path, atime, mtime, NULL);
+-#if (defined(_AIX) && !defined(_AIX71)) ||                                    \
+-     defined(__MVS__)
++#if (defined(_AIX) && !defined(_AIX71))
+   ASSERT_EQ(r, UV_ENOSYS);
+-  RETURN_SKIP("lutime is not implemented for z/OS and AIX versions below 7.1");
++  RETURN_SKIP("lutime is not implemented for AIX versions below 7.1");
+ #endif
+   ASSERT_OK(r);
+   lutime_cb(&req);
