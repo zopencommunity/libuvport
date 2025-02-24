@@ -1,5 +1,5 @@
 diff --git a/src/unix/fs.c b/src/unix/fs.c
-index 3a74350f..6cb5d620 100644
+index 3a74350f..73a9a6a4 100644
 --- a/src/unix/fs.c
 +++ b/src/unix/fs.c
 @@ -82,7 +82,11 @@
@@ -86,3 +86,14 @@ index 3a74350f..6cb5d620 100644
    bytes_to_send = src_statsbuf.st_size;
    in_offset = 0;
    while (bytes_to_send != 0) {
+@@ -1372,6 +1377,10 @@ static void uv__to_stat(struct stat* src, uv_stat_t* dst) {
+   dst->st_flags = 0;
+   dst->st_gen = 0;
+ #endif
++
++#ifdef __MVS__
++  dst->st_tag = src->st_tag;
++#endif
+ }
+ 
+ 

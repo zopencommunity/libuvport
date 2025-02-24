@@ -1,5 +1,5 @@
 diff --git a/include/uv.h b/include/uv.h
-index a62b3fa6..084e35ad 100644
+index a62b3fa6..47f2ab74 100644
 --- a/include/uv.h
 +++ b/include/uv.h
 @@ -132,6 +132,7 @@ struct uv__queue {
@@ -10,3 +10,13 @@ index a62b3fa6..084e35ad 100644
    XX(EPERM, "operation not permitted")                                        \
    XX(EPIPE, "broken pipe")                                                    \
    XX(EPROTO, "protocol error")                                                \
+@@ -396,6 +397,9 @@ typedef struct {
+   uv_timespec_t st_mtim;
+   uv_timespec_t st_ctim;
+   uv_timespec_t st_birthtim;
++#ifdef __MVS__
++  struct file_tag st_tag; 
++#endif
+ } uv_stat_t;
+ 
+ 
