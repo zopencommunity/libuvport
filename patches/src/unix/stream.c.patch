@@ -1,5 +1,5 @@
 diff --git a/src/unix/stream.c b/src/unix/stream.c
-index 28c4d546..e877bcdc 100644
+index 28c4d546..57bcde8d 100644
 --- a/src/unix/stream.c
 +++ b/src/unix/stream.c
 @@ -113,6 +113,10 @@ void uv__stream_init(uv_loop_t* loop,
@@ -37,73 +37,7 @@ index 28c4d546..e877bcdc 100644
        err = UV__ERR(errno);
      else /* Success. */
        stream->flags |= UV_HANDLE_SHUT;
-@@ -658,12 +671,62 @@ static void uv__drain(uv_stream_t* stream) {
-   }
- }
- 
-+static ssize_t ebcdic_writev(int fd, const struct iovec *iov, int iovcnt) {
-+    size_t total_len = 0;
-+    for (int i = 0; i < iovcnt; i++) {
-+        total_len += iov[i].iov_len;
-+    }
-+
-+    // Use stack allocation for small buffers to avoid malloc overhead.
-+    const size_t STACK_THRESHOLD = 1024;  // 1KB threshold (adjust as needed)
-+    char *converted_buf = NULL;
-+    bool using_heap = false;
-+    if (total_len <= STACK_THRESHOLD) {
-+        converted_buf = alloca(total_len);
-+    } else {
-+        converted_buf = malloc(total_len);
-+        if (!converted_buf)
-+            return -1;  // Allocation failed
-+        using_heap = true;
-+    }
-+
-+    char *ptr = converted_buf;
-+    for (int i = 0; i < iovcnt; i++) {
-+        memcpy(ptr, iov[i].iov_base, iov[i].iov_len);
-+        ptr += iov[i].iov_len;
-+    }
-+
-+    // Write the entire converted buffer at once.
-+    ssize_t written = write(fd, converted_buf, total_len);
-+
-+    if (using_heap) {
-+        free(converted_buf);
-+    }
-+
-+    return written;
-+}
-+
-+ssize_t my_writev(int fd, const struct iovec *iov, int iovcnt) {
-+    if (!isatty(fd)) {
-+      return writev(fd, iov, iovcnt); 
-+    }
-+
-+    int ccsid = __getfdccsid(fd);
-+
-+    if (ccsid == 1047 || ccsid == (65536 + 1047)) {
-+      return ebcdic_writev(fd, iov, iovcnt);
-+    }
-+    
-+    return writev(fd, iov, iovcnt);
-+}
- 
- static ssize_t uv__writev(int fd, struct iovec* vec, size_t n) {
--  if (n == 1)
-+  if (n == 1) {
-     return write(fd, vec->iov_base, vec->iov_len);
--  else
--    return writev(fd, vec, n);
-+  }
-+  else {
-+    return my_writev(fd, vec, n); 
-+  }
- }
- 
- 
-@@ -1089,6 +1152,23 @@ static void uv__read(uv_stream_t* stream) {
+@@ -1089,6 +1102,23 @@ static void uv__read(uv_stream_t* stream) {
        } else if (errno == ECONNRESET && stream->type == UV_NAMED_PIPE) {
          uv__stream_eof(stream, &buf);
          return;
@@ -127,7 +61,7 @@ index 28c4d546..e877bcdc 100644
  #endif
        } else {
          /* Error. User should call uv_close(). */
-@@ -1174,8 +1254,13 @@ int uv_shutdown(uv_shutdown_t* req, uv_stream_t* stream, uv_shutdown_cb cb) {
+@@ -1174,8 +1204,13 @@ int uv_shutdown(uv_shutdown_t* req, uv_stream_t* stream, uv_shutdown_cb cb) {
    stream->shutdown_req = req;
    stream->flags &= ~UV_HANDLE_WRITABLE;
  
@@ -141,7 +75,7 @@ index 28c4d546..e877bcdc 100644
  
    return 0;
  }
-@@ -1202,6 +1287,19 @@ static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
+@@ -1202,6 +1237,19 @@ static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
    if (events & (POLLIN | POLLERR | POLLHUP))
      uv__read(stream);
  
@@ -161,7 +95,7 @@ index 28c4d546..e877bcdc 100644
    if (uv__stream_fd(stream) == -1)
      return;  /* read_cb closed stream. */
  
-@@ -1222,6 +1320,22 @@ static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
+@@ -1222,6 +1270,22 @@ static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
    if (uv__stream_fd(stream) == -1)
      return;  /* read_cb closed stream. */
  

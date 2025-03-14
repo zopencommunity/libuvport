@@ -9,6 +9,7 @@ export ZOPEN_DEV_URL="https://github.com/libuv/libuv.git"
 export ZOPEN_DEV_DEPS="zoslib make cmake"
 export ZOPEN_BUILD_LINE="STABLE"
 export ZOPEN_COMP="CLANG"
+export ZOPEN_CLONE_FULL="yes"
 
 export ZOPEN_CONFIGURE="cmake"
 export ZOPEN_CONFIGURE_OPTS="-B ../build -DZOSLIB_DIR=\"\$ZOSLIB_HOME\" -DBUILD_TESTING=ON --install-prefix \"\$ZOPEN_INSTALL_DIR/\" ."
