@@ -1,0 +1,24 @@
+diff --git a/test/task.h b/test/task.h
+index e25a9c9a..ea143cda 100644
+--- a/test/task.h
++++ b/test/task.h
+@@ -31,6 +31,19 @@
+ #include <inttypes.h>
+ #include <stdint.h>
+ 
++#ifdef __MVS__
++#include "zos-base.h"
++
++static void abort_no_bt() {
++    __set_backtrace_on_abort(false);
++    abort();
++}
++
++#undef abort
++#define abort() abort_no_bt()
++
++#endif
++
+ #if !defined(_WIN32)
+ # include <sys/time.h>
+ # include <sys/resource.h>  /* setrlimit() */

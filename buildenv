@@ -1,5 +1,5 @@
 # bump: libuv-version /LIBUV_VERSION="(.*)"/ https://github.com/libuv/libuv.git|semver:*
-LIBUV_VERSION="1.48.0"
+LIBUV_VERSION="1.50.0"
 
 export ZOPEN_STABLE_URL="https://github.com/libuv/libuv.git"
 export ZOPEN_CATEGORIES="library"
@@ -36,8 +36,7 @@ chk="$1/$2_check.log"
 
 successes=$(grep -E "^ok " ${chk} | wc -l)
 totalTests=$(grep -E "^not ok |^ok " ${chk} | wc -l)
-failures="$((totalTests - successes + 4))"
-totalTests="$((totalTests + 4))"
+failures="$((totalTests-successes))"
 
   cat <<ZZ
   actualFailures:$failures

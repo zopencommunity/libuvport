@@ -1,0 +1,20 @@
+diff --git a/test/test-list.h b/test/test-list.h
+index d30f02fa..e4282bf6 100644
+--- a/test/test-list.h
++++ b/test/test-list.h
+@@ -333,6 +333,7 @@ TEST_DECLARE   (spawn_stdout_and_stderr_to_file2)
+ TEST_DECLARE   (spawn_stdout_and_stderr_to_file_swap)
+ TEST_DECLARE   (spawn_auto_unref)
+ TEST_DECLARE   (spawn_closed_process_io)
++TEST_DECLARE   (spawn_closed_process_all_stdio)
+ TEST_DECLARE   (spawn_reads_child_path)
+ TEST_DECLARE   (spawn_inherit_streams)
+ TEST_DECLARE   (spawn_quoted_path)
+@@ -998,6 +999,7 @@ TASK_LIST_START
+   TEST_ENTRY  (spawn_stdout_and_stderr_to_file_swap)
+   TEST_ENTRY  (spawn_auto_unref)
+   TEST_ENTRY  (spawn_closed_process_io)
++  TEST_ENTRY  (spawn_closed_process_all_stdio)
+   TEST_ENTRY  (spawn_reads_child_path)
+   TEST_ENTRY  (spawn_inherit_streams)
+   TEST_ENTRY  (spawn_quoted_path)

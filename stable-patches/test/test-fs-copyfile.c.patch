@@ -1,10 +1,10 @@
 diff --git a/test/test-fs-copyfile.c b/test/test-fs-copyfile.c
-index 3aacf125..12fb7ed5 100644
+index f7a0c236..c5c9c884 100644
 --- a/test/test-fs-copyfile.c
 +++ b/test/test-fs-copyfile.c
-@@ -47,6 +47,10 @@ static void handle_result(uv_fs_t* req) {
-   uint64_t size;
-   uint64_t mode;
+@@ -49,6 +49,10 @@ static void handle_result(uv_fs_t* req) {
+   uint64_t uid;
+   uint64_t gid;
    int r;
 +#ifdef __MVS__
 +  struct stat src_st;
@@ -13,12 +13,12 @@ index 3aacf125..12fb7ed5 100644
  
    ASSERT_EQ(req->fs_type, UV_FS_COPYFILE);
    ASSERT_OK(req->result);
-@@ -57,6 +61,15 @@ static void handle_result(uv_fs_t* req) {
-   size = stat_req.statbuf.st_size;
-   mode = stat_req.statbuf.st_mode;
+@@ -61,6 +65,15 @@ static void handle_result(uv_fs_t* req) {
+   uid = stat_req.statbuf.st_uid;
+   gid = stat_req.statbuf.st_gid;
    uv_fs_req_cleanup(&stat_req);
 +#ifdef __MVS__
-+  /* Verify that file tags are the same. */
++/* Verify that file tags are the same. */
 +  r = stat(req->path, &src_st);
 +  ASSERT_EQ(r, 0);
 +  r = stat(dst, &dst_st);
