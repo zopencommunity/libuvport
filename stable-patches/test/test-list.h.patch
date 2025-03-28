@@ -1,25 +1,7 @@
 diff --git a/test/test-list.h b/test/test-list.h
-index d30f02fa..a6257052 100644
+index d30f02fa..e4282bf6 100644
 --- a/test/test-list.h
 +++ b/test/test-list.h
-@@ -106,7 +106,7 @@ TEST_DECLARE   (tcp_write_after_connect)
- TEST_DECLARE   (tcp_writealot)
- TEST_DECLARE   (tcp_write_fail)
- TEST_DECLARE   (tcp_try_write)
--TEST_DECLARE   (tcp_write_in_a_row)
-+//TEST_DECLARE   (tcp_write_in_a_row)
- TEST_DECLARE   (tcp_try_write_error)
- TEST_DECLARE   (tcp_write_queue_order)
- TEST_DECLARE   (tcp_open)
-@@ -174,7 +174,7 @@ TEST_DECLARE   (udp_send_immediate)
- TEST_DECLARE   (udp_send_unreachable)
- TEST_DECLARE   (udp_mmsg)
- TEST_DECLARE   (udp_multicast_join)
--TEST_DECLARE   (udp_multicast_join6)
-+// TEST_DECLARE   (udp_multicast_join6)
- TEST_DECLARE   (udp_multicast_ttl)
- TEST_DECLARE   (udp_multicast_interface)
- TEST_DECLARE   (udp_multicast_interface6)
 @@ -333,6 +333,7 @@ TEST_DECLARE   (spawn_stdout_and_stderr_to_file2)
  TEST_DECLARE   (spawn_stdout_and_stderr_to_file_swap)
  TEST_DECLARE   (spawn_auto_unref)
@@ -28,42 +10,6 @@ index d30f02fa..a6257052 100644
  TEST_DECLARE   (spawn_reads_child_path)
  TEST_DECLARE   (spawn_inherit_streams)
  TEST_DECLARE   (spawn_quoted_path)
-@@ -390,7 +391,7 @@ TEST_DECLARE   (fs_file_open_append)
- TEST_DECLARE   (fs_statfs)
- TEST_DECLARE   (fs_stat_batch_multiple)
- TEST_DECLARE   (fs_stat_missing_path)
--TEST_DECLARE   (fs_read_bufs)
-+// TEST_DECLARE   (fs_read_bufs)
- TEST_DECLARE   (fs_read_file_eof)
- TEST_DECLARE   (fs_event_watch_dir)
- TEST_DECLARE   (fs_event_watch_dir_recursive)
-@@ -488,7 +489,7 @@ TEST_DECLARE   (poll_nested_kqueue)
- TEST_DECLARE   (poll_multiple_handles)
- 
- TEST_DECLARE   (ip4_addr)
--TEST_DECLARE   (ip6_addr_link_local)
-+// TEST_DECLARE   (ip6_addr_link_local)
- TEST_DECLARE   (ip_name)
- 
- TEST_DECLARE   (poll_close_doesnt_corrupt_stack)
-@@ -698,7 +699,7 @@ TASK_LIST_START
-   TEST_HELPER (tcp_write_fail, tcp4_echo_server)
- 
-   TEST_ENTRY  (tcp_try_write)
--  TEST_ENTRY  (tcp_write_in_a_row)
-+//  TEST_ENTRY  (tcp_write_in_a_row)
-   TEST_ENTRY  (tcp_try_write_error)
- 
-   TEST_ENTRY  (tcp_write_queue_order)
-@@ -794,7 +795,7 @@ TASK_LIST_START
-   TEST_ENTRY  (udp_multicast_interface)
-   TEST_ENTRY  (udp_multicast_interface6)
-   TEST_ENTRY  (udp_multicast_join)
--  TEST_ENTRY  (udp_multicast_join6)
-+//  TEST_ENTRY  (udp_multicast_join6)
-   TEST_ENTRY  (udp_multicast_ttl)
-   TEST_ENTRY  (udp_sendmmsg_error)
-   TEST_ENTRY  (udp_try_send)
 @@ -998,6 +999,7 @@ TASK_LIST_START
    TEST_ENTRY  (spawn_stdout_and_stderr_to_file_swap)
    TEST_ENTRY  (spawn_auto_unref)
@@ -72,21 +18,3 @@ index d30f02fa..a6257052 100644
    TEST_ENTRY  (spawn_reads_child_path)
    TEST_ENTRY  (spawn_inherit_streams)
    TEST_ENTRY  (spawn_quoted_path)
-@@ -1092,7 +1094,7 @@ TASK_LIST_START
-   TEST_ENTRY  (fs_statfs)
-   TEST_ENTRY  (fs_stat_batch_multiple)
-   TEST_ENTRY  (fs_stat_missing_path)
--  TEST_ENTRY  (fs_read_bufs)
-+//  TEST_ENTRY  (fs_read_bufs)
-   TEST_ENTRY  (fs_read_file_eof)
-   TEST_ENTRY  (fs_file_open_append)
-   TEST_ENTRY  (fs_event_watch_dir)
-@@ -1175,7 +1177,7 @@ TASK_LIST_START
-   TEST_ENTRY  (thread_priority)
-   TEST_ENTRY  (dlerror)
-   TEST_ENTRY  (ip4_addr)
--  TEST_ENTRY  (ip6_addr_link_local)
-+//  TEST_ENTRY  (ip6_addr_link_local)
-   TEST_ENTRY  (ip_name)
- 
-   TEST_ENTRY  (queue_foreach_delete)
