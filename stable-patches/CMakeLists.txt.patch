@@ -1,17 +1,8 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 5e8e0166..08db4772 100644
+index 73d5aff8..9b47d172 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -20,7 +20,7 @@ include(CTest)
- set(CMAKE_C_VISIBILITY_PRESET hidden)
- set(CMAKE_C_STANDARD_REQUIRED ON)
- set(CMAKE_C_EXTENSIONS ON)
--set(CMAKE_C_STANDARD 90)
-+set(CMAKE_C_STANDARD 11)
- 
- set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
- 
-@@ -359,23 +359,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "OS390")
+@@ -365,23 +365,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "OS390")
         src/unix/os390-syscalls.c
         src/unix/os390-proctitle.c)
    list(APPEND uv_cflags
@@ -41,7 +32,7 @@ index 5e8e0166..08db4772 100644
  endif()
  
  if(CMAKE_SYSTEM_NAME STREQUAL "OS400")
-@@ -462,6 +451,12 @@ if(LIBUV_BUILD_SHARED)
+@@ -469,6 +458,12 @@ if(LIBUV_BUILD_SHARED)
    if(CMAKE_SYSTEM_NAME STREQUAL "OS390")
      target_include_directories(uv PUBLIC $<BUILD_INTERFACE:${ZOSLIB_DIR}/include>)
      set_target_properties(uv PROPERTIES LINKER_LANGUAGE CXX)
@@ -54,7 +45,7 @@ index 5e8e0166..08db4772 100644
    endif()
    target_link_libraries(uv ${uv_libraries})
    set_target_properties(uv PROPERTIES OUTPUT_NAME "uv")
-@@ -479,6 +474,12 @@ target_include_directories(uv_a
+@@ -486,6 +481,12 @@ target_include_directories(uv_a
  if(CMAKE_SYSTEM_NAME STREQUAL "OS390")
    target_include_directories(uv_a PUBLIC $<BUILD_INTERFACE:${ZOSLIB_DIR}/include>)
    set_target_properties(uv_a PROPERTIES LINKER_LANGUAGE CXX)
