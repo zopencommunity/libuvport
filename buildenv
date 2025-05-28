@@ -1,5 +1,5 @@
 # bump: libuv-version /LIBUV_VERSION="(.*)"/ https://github.com/libuv/libuv.git|semver:*
-LIBUV_VERSION="1.50.0"
+LIBUV_VERSION="1.51.0"
 
 export ZOPEN_STABLE_URL="https://github.com/libuv/libuv.git"
 export ZOPEN_CATEGORIES="library"
