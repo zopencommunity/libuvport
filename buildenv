@@ -25,6 +25,8 @@ export ZOPEN_CHECK_MINIMAL=Y
 export ZOPEN_INSTALL="cmake"
 export ZOPEN_INSTALL_OPTS="--install ../build"
 
+export ZOPEN_EXTRA_CPPFLAGS="-D_POSIX_C_SOURCE=200809L -D_XPLATFORM_SOURCE=1"
+
 zopen_check()
 {
   $ZOPEN_ROOT/build/uv_run_tests_a
