@@ -1,10 +1,10 @@
 diff --git a/docs/src/fs.rst b/docs/src/fs.rst
-index 891ee74c..8354c7b1 100644
+index 01a48e8e..7bfc6203 100644
 --- a/docs/src/fs.rst
 +++ b/docs/src/fs.rst
-@@ -420,10 +420,6 @@ API
- 
-     Equivalent to :man:`utime(2)`, :man:`futimes(3)` and :man:`lutimes(3)` respectively.
+@@ -436,10 +436,6 @@ API
+     Passing `UV_FS_UTIME_OMIT` as the atime or mtime leaves the timestamp
+     untouched.
  
 -    .. note::
 -      z/OS: `uv_fs_lutime()` is not implemented for z/OS. It can still be called but will return

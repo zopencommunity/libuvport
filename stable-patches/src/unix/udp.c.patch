@@ -1,0 +1,13 @@
+diff --git a/src/unix/udp.c b/src/unix/udp.c
+index c4a3559d..fb592a7a 100644
+--- a/src/unix/udp.c
++++ b/src/unix/udp.c
+@@ -1344,7 +1344,7 @@ static int uv__udp_sendmsgv(int fd,
+ 	 */
+ 
+   for (i = 0; i < count; i++, nsent++)
+-    if ((r = uv__udp_sendmsg1(fd, bufs[i], nbufs[i], addrs[i])))
++    if ((r = uv__udp_sendmsg1(fd, bufs[i], nbufs[i], addrs[i])) < 1)
+       goto exit;  /* goto to avoid unused label warning. */
+ 
+ exit:

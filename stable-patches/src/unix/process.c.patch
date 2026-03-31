@@ -1,5 +1,5 @@
 diff --git a/src/unix/process.c b/src/unix/process.c
-index f2038f2c..67b624cb 100644
+index 43e6b798..08cb113a 100644
 --- a/src/unix/process.c
 +++ b/src/unix/process.c
 @@ -56,7 +56,8 @@ extern char **environ;
@@ -12,7 +12,7 @@ index f2038f2c..67b624cb 100644
  # include <grp.h>
  #endif
  
-@@ -221,6 +222,63 @@ static int uv__process_init_stdio(uv_stdio_container_t* container, int fds[2]) {
+@@ -234,6 +235,65 @@ static int uv__process_init_stdio(uv_stdio_container_t* container, int fds[2]) {
    }
  }
  
@@ -62,12 +62,14 @@ index f2038f2c..67b624cb 100644
 +      struct f_cnvrt req = { SETAUTOCVTON, 0, 819 };
 +      fcntl(pipes[0], F_CONTROL_CVT, &req);
 +    }
++    __chgfdccsid(pipes[0], 819);
 +  } else if (i == STDIN_FILENO && !isatty(pipes[1])) {
 +    if ((container->flags & UV_CREATE_PIPE) &&
 +        ((uv_pipe_t*)(container->data.stream))->ipc) {
 +      struct f_cnvrt req = { SETAUTOCVTON, 0, 819 };
 +      fcntl(pipes[1], F_CONTROL_CVT, &req);
 +    }
++    __chgfdccsid(pipes[1], 819);
 +  }
 +
 +  return err;
@@ -76,7 +78,7 @@ index f2038f2c..67b624cb 100644
  
  static int uv__process_open_stream(uv_stdio_container_t* container,
                                     int pipefds[2]) {
-@@ -230,7 +288,14 @@ static int uv__process_open_stream(uv_stdio_container_t* container,
+@@ -243,7 +303,14 @@ static int uv__process_open_stream(uv_stdio_container_t* container,
    if (!(container->flags & UV_CREATE_PIPE) || pipefds[0] < 0)
      return 0;
  
@@ -91,7 +93,7 @@ index f2038f2c..67b624cb 100644
    if (err != 0)
      abort();
  
-@@ -997,7 +1062,11 @@ int uv_spawn(uv_loop_t* loop,
+@@ -1010,7 +1077,11 @@ int uv_spawn(uv_loop_t* loop,
    }
  
    for (i = 0; i < options->stdio_count; i++) {

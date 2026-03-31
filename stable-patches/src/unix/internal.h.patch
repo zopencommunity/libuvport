@@ -1,8 +1,8 @@
 diff --git a/src/unix/internal.h b/src/unix/internal.h
-index bcb3be57..e606cf97 100644
+index a1d7d436..cee7741e 100644
 --- a/src/unix/internal.h
 +++ b/src/unix/internal.h
-@@ -92,6 +92,14 @@
+@@ -99,6 +99,14 @@
  # define UV__PATH_MAX 8192
  #endif
  

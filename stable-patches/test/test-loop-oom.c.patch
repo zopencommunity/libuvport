@@ -1,0 +1,16 @@
+diff --git a/test/test-loop-oom.c b/test/test-loop-oom.c
+index 5f5b58c9..73329b63 100644
+--- a/test/test-loop-oom.c
++++ b/test/test-loop-oom.c
+@@ -29,8 +29,10 @@ static int alloc;
+ 
+ static void* t_realloc(void* p, size_t n) {
+   alloc += n;
+-  if (alloc > limit)
++  if (alloc > limit) {
++    errno = ENOMEM;
+     return NULL;
++  }
+   p = realloc(p, n);
+   ASSERT_NOT_NULL(p);
+   return p;

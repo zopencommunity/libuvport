@@ -1,7 +1,19 @@
 diff --git a/src/unix/core.c b/src/unix/core.c
-index 61cbc0d0..461dc022 100644
+index bd51b69b..3c55abfa 100644
 --- a/src/unix/core.c
 +++ b/src/unix/core.c
+@@ -205,9 +205,9 @@ void uv_close(uv_handle_t* handle, uv_close_cb close_cb) {
+ 
+   case UV_FS_EVENT:
+     uv__fs_event_close((uv_fs_event_t*)handle);
+-#if defined(__sun) || defined(__MVS__)
++#if defined(__sun)
+     /*
+-     * On Solaris, illumos, and z/OS we will not be able to dissociate the
++     * On Solaris, illumos we will not be able to dissociate the
+      * watcher for an event which is pending delivery, so we cannot always call
+      * uv__make_close_pending() straight away. The backend will call the
+      * function once the event has cleared.
 @@ -598,6 +598,9 @@ int uv__accept(int sockfd) {
   * by making the system call directly. Musl libc is unaffected.
   */
@@ -22,18 +34,28 @@ index 61cbc0d0..461dc022 100644
    return uv__close_nocheckstdio(fd);
  }
  
-@@ -1007,6 +1007,10 @@ static int uv__getrusage(int who, uv_rusage_t* rusage) {
+@@ -1029,7 +1029,9 @@ static int uv__getrusage(int who, uv_rusage_t* rusage) {
+ 
    if (getrusage(who, &usage))
      return UV__ERR(errno);
- 
+-
 +#if defined(__MVS__)
 +  memset(rusage, 0, sizeof(*rusage));
 +#endif
-+
    rusage->ru_utime.tv_sec = usage.ru_utime.tv_sec;
    rusage->ru_utime.tv_usec = usage.ru_utime.tv_usec;
  
-@@ -1515,6 +1519,10 @@ int uv_os_setenv(const char* name, const char* value) {
+@@ -1105,6 +1107,9 @@ int uv_getrusage_thread(uv_rusage_t* rusage) {
+   return uv__getrusage(RUSAGE_LWP, rusage);
+ #elif defined(RUSAGE_THREAD)
+   return uv__getrusage(RUSAGE_THREAD, rusage);
++#elif defined(__MVS__)
++  // On z/OS there's only RUSAGE_SELF (current process) and RUSAGE_CHILDREN.
++  return uv__getrusage(RUSAGE_SELF, rusage);
+ #endif  /* defined(__APPLE__) */
+   return UV_ENOTSUP;
+ }
+@@ -1540,6 +1545,10 @@ int uv_os_setenv(const char* name, const char* value) {
    if (setenv(name, value, 1) != 0)
      return UV__ERR(errno);
  
@@ -44,7 +66,7 @@ index 61cbc0d0..461dc022 100644
    return 0;
  }
  
-@@ -1526,6 +1534,10 @@ int uv_os_unsetenv(const char* name) {
+@@ -1551,6 +1560,10 @@ int uv_os_unsetenv(const char* name) {
    if (unsetenv(name) != 0)
      return UV__ERR(errno);
  
@@ -55,7 +77,7 @@ index 61cbc0d0..461dc022 100644
    return 0;
  }
  
-@@ -1619,6 +1631,11 @@ int uv_os_setpriority(uv_pid_t pid, int priority) {
+@@ -1644,6 +1657,11 @@ int uv_os_setpriority(uv_pid_t pid, int priority) {
   * So the output parameter priority is actually the nice value.
  */
  int uv_thread_getpriority(uv_thread_t tid, int* priority) {
@@ -67,7 +89,7 @@ index 61cbc0d0..461dc022 100644
    int r;
    int policy;
    struct sched_param param;
-@@ -1646,6 +1663,7 @@ int uv_thread_getpriority(uv_thread_t tid, int* priority) {
+@@ -1671,6 +1689,7 @@ int uv_thread_getpriority(uv_thread_t tid, int* priority) {
  
    *priority = param.sched_priority;
    return 0;
@@ -75,26 +97,16 @@ index 61cbc0d0..461dc022 100644
  }
  
  #ifdef __linux__
-@@ -1670,6 +1688,10 @@ static int set_nice_for_calling_thread(int priority) {
+@@ -1695,7 +1714,7 @@ static int set_nice_for_calling_thread(int priority) {
   * If the function fails, the return value is non-zero.
  */
  int uv_thread_setpriority(uv_thread_t tid, int priority) {
-+#ifdef __MVS__
-+  // TODO(gabylb): zos - no pthread_setschedparam() on z/OS.
-+  return 0;
-+#else
- #if !defined(__GNU__)
+-#if !defined(__GNU__)
++#if !defined(__GNU__) && !defined(__MVS__)
    int r;
    int min;
-@@ -1740,6 +1762,7 @@ int uv_thread_setpriority(uv_thread_t tid, int priority) {
-   /* Simulate success on systems where thread priority is not implemented. */
-   return 0;
- #endif  /* !defined(__GNU__) */
-+#endif
- }
- 
- int uv_os_uname(uv_utsname_t* buffer) {
-@@ -1900,8 +1923,10 @@ int uv__search_path(const char* prog, char* buf, size_t* buflen) {
+   int max;
+@@ -1925,8 +1944,10 @@ int uv__search_path(const char* prog, char* buf, size_t* buflen) {
    while (token != NULL) {
      snprintf(trypath, sizeof(trypath) - 1, "%s/%s", token, prog);
      if (realpath(trypath, abspath) == abspath) {
@@ -107,3 +119,25 @@ index 61cbc0d0..461dc022 100644
          abspath_size = strlen(abspath);
  
          *buflen -= 1;
+@@ -1984,10 +2005,6 @@ unsigned int uv_available_parallelism(void) {
+     rc = uv__cpu_count(&set);
+ #elif defined(__MVS__)
+   rc = __get_num_online_cpus();
+-  if (rc < 1)
+-    rc = 1;
+-
+-  return (unsigned) rc;
+ #elif defined(__FreeBSD__)
+   cpuset_t set;
+ 
+@@ -2041,8 +2058,10 @@ unsigned int uv_available_parallelism(void) {
+   }
+ #endif /* __linux__ */
+ 
++#if !defined(__MVS__)
+   if (rc < 0)
+     rc = sysconf(_SC_NPROCESSORS_ONLN);
++#endif /* !__MVS__ */
+ 
+ #ifdef __linux__
+   {

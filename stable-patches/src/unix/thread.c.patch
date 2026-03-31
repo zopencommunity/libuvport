@@ -1,8 +1,8 @@
 diff --git a/src/unix/thread.c b/src/unix/thread.c
-index f05e6fe0..0f6564de 100644
+index 34fea364..ab7a1939 100644
 --- a/src/unix/thread.c
 +++ b/src/unix/thread.c
-@@ -35,6 +35,7 @@
+@@ -38,6 +38,7 @@
  #ifdef __MVS__
  #include <sys/ipc.h>
  #include <sys/sem.h>
@@ -10,7 +10,7 @@ index f05e6fe0..0f6564de 100644
  #endif
  
  #if defined(__GLIBC__) && !defined(__UCLIBC__)
-@@ -515,11 +516,7 @@ static void glibc_version_check(void) {
+@@ -536,11 +537,7 @@ static void glibc_version_check(void) {
        atoi(version + 2) < 21;
  }
  

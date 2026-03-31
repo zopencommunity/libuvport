@@ -1,5 +1,5 @@
 diff --git a/include/uv/errno.h b/include/uv/errno.h
-index 127278ef..8c2fb683 100644
+index ac00778c..a88f7417 100644
 --- a/include/uv/errno.h
 +++ b/include/uv/errno.h
 @@ -302,6 +302,12 @@

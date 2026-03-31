@@ -1,16 +1,44 @@
 diff --git a/src/unix/os390-syscalls.h b/src/unix/os390-syscalls.h
-index d5f3bcf8..f2fc1338 100644
+index d5f3bcf8..a6790913 100644
 --- a/src/unix/os390-syscalls.h
 +++ b/src/unix/os390-syscalls.h
-@@ -55,6 +55,7 @@ typedef struct {
- uv__os390_epoll* epoll_create1(int flags);
- int epoll_ctl(uv__os390_epoll* ep, int op, int fd, struct epoll_event *event);
- int epoll_wait(uv__os390_epoll* ep, struct epoll_event *events, int maxevents, int timeout);
+@@ -27,18 +27,12 @@
+ #include "internal.h"
+ #include <dirent.h>
+ #include <poll.h>
++#include <sys/epoll.h> // for EPOLL_CTL_ADD, MOD, DEL
++#include <sys/inotify.h>
+ #include <pthread.h>
+ #include "zos-base.h"
+ 
+-#define EPOLL_CTL_ADD             1
+-#define EPOLL_CTL_DEL             2
+-#define EPOLL_CTL_MOD             3
+-#define MAX_EPOLL_INSTANCES       256
+-#define MAX_ITEMS_PER_EPOLL       1024
+-
+-#define UV__O_CLOEXEC             0x80000
+-
+-struct epoll_event {
++struct __epoll_event {
+   int events;
+   int fd;
+   int is_msg;
+@@ -52,9 +46,10 @@ typedef struct {
+ } uv__os390_epoll;
+ 
+ /* epoll api */
+-uv__os390_epoll* epoll_create1(int flags);
+-int epoll_ctl(uv__os390_epoll* ep, int op, int fd, struct epoll_event *event);
+-int epoll_wait(uv__os390_epoll* ep, struct epoll_event *events, int maxevents, int timeout);
++uv__os390_epoll* __epoll_create1(int flags);
++int __epoll_ctl(uv__os390_epoll* ep, int op, int fd, struct __epoll_event *event);
++int __epoll_wait(uv__os390_epoll* ep, struct __epoll_event *events, int maxevents, int timeout);
 +void epoll_queue_close(uv__os390_epoll* lst);
  int epoll_file_close(int fd);
  
  /* utility functions */
-@@ -63,13 +64,7 @@ int scandir(const char* maindir, struct dirent*** namelist,
+@@ -63,13 +58,7 @@ int scandir(const char* maindir, struct dirent*** namelist,
              int (*compar)(const struct dirent **,
              const struct dirent **));
  char *mkdtemp(char* path);

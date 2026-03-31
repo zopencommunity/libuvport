@@ -1,0 +1,14 @@
+diff --git a/test/test-thread-name.c b/test/test-thread-name.c
+index 39340744..08856586 100644
+--- a/test/test-thread-name.c
++++ b/test/test-thread-name.c
+@@ -183,6 +183,9 @@ TEST_IMPL(thread_name_threadpool) {
+   RETURN_SKIP("API not available on this platform");
+ #endif
+   uv_work_t req;
++#if defined(__MVS__)
++  RETURN_SKIP("API not available on this platform");
++#endif
+   loop = uv_default_loop();
+   // Just to make sure all workers will be executed
+   // with the correct thread name

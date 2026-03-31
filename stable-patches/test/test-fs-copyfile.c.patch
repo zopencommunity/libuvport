@@ -1,5 +1,5 @@
 diff --git a/test/test-fs-copyfile.c b/test/test-fs-copyfile.c
-index f7a0c236..c5c9c884 100644
+index f7a0c236..78daad98 100644
 --- a/test/test-fs-copyfile.c
 +++ b/test/test-fs-copyfile.c
 @@ -49,6 +49,10 @@ static void handle_result(uv_fs_t* req) {
@@ -18,7 +18,7 @@ index f7a0c236..c5c9c884 100644
    gid = stat_req.statbuf.st_gid;
    uv_fs_req_cleanup(&stat_req);
 +#ifdef __MVS__
-+/* Verify that file tags are the same. */
++  /* Verify that file tags are the same. */
 +  r = stat(req->path, &src_st);
 +  ASSERT_EQ(r, 0);
 +  r = stat(dst, &dst_st);

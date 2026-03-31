@@ -1,5 +1,5 @@
 diff --git a/src/unix/fs.c b/src/unix/fs.c
-index 239ecda1..cba51319 100644
+index 717f3fab..ec858849 100644
 --- a/src/unix/fs.c
 +++ b/src/unix/fs.c
 @@ -83,6 +83,10 @@
@@ -13,19 +13,47 @@ index 239ecda1..cba51319 100644
  #if defined(_AIX) && _XOPEN_SOURCE <= 600
  extern char *mkdtemp(char *template); /* See issue #740 on AIX < 7 */
  #endif
-@@ -247,6 +251,7 @@ static ssize_t uv__fs_futime(uv_fs_t* req) {
-     || defined(__FreeBSD__)                                                   \
+@@ -211,7 +215,8 @@ static ssize_t uv__fs_fdatasync(uv_fs_t* req) {
      || defined(__NetBSD__)                                                    \
      || defined(__OpenBSD__)                                                   \
-+    || defined(__MVS__)                                                       \
-     || defined(__sun)
-   struct timeval tv[2];
-   tv[0] = uv__fs_to_timeval(req->atime);
-@@ -256,14 +261,6 @@ static ssize_t uv__fs_futime(uv_fs_t* req) {
- # else
-   return futimes(req->file, tv);
- # endif
--#elif defined(__MVS__)
+     || defined(__linux__)                                                     \
+-    || defined(__sun)
++    || defined(__sun)                                                         \
++    || defined(__MVS__)
+ static struct timespec uv__fs_to_timespec(double time) {
+   struct timespec ts;
+ 
+@@ -239,6 +244,26 @@ static struct timespec uv__fs_to_timespec(double time) {
+ #endif
+ 
+ 
++#if defined(__MVS__)
++static struct timeval uv__fs_to_timeval(double time) {
++  struct timeval tv;
++  if (uv__isinf(time))
++    // 0 is for char tv_usec_pad[4]
++    return (struct timeval){UTIME_NOW, "", UTIME_NOW};
++  else if (uv__isnan(time))
++    return (struct timeval){UTIME_OMIT, "", UTIME_OMIT};
++
++  tv.tv_sec  = time;
++  tv.tv_usec = (time - tv.tv_sec) * 1e6;
++  if (tv.tv_usec < 0) {
++    tv.tv_usec += 1e6;
++    tv.tv_sec -= 1;
++  }
++  return tv;
++}
++#endif
++
++
+ static ssize_t uv__fs_futime(uv_fs_t* req) {
+ #if defined(__APPLE__)                                                        \
+     || defined(_AIX71)                                                        \
+@@ -254,13 +279,10 @@ static ssize_t uv__fs_futime(uv_fs_t* req) {
+   ts[1] = uv__fs_to_timespec(req->mtime);
+   return futimens(req->file, ts);
+ #elif defined(__MVS__)
 -  attrib_t atr;
 -  memset(&atr, 0, sizeof(atr));
 -  atr.att_mtimechg = 1;
@@ -33,21 +61,14 @@ index 239ecda1..cba51319 100644
 -  atr.att_mtime = req->mtime;
 -  atr.att_atime = req->atime;
 -  return __fchattr(req->file, &atr, sizeof(atr));
++  struct timeval tv[2];
++  tv[0] = uv__fs_to_timeval(req->atime);
++  tv[1] = uv__fs_to_timeval(req->mtime);
++  return futimes(req->file, tv);
  #else
    errno = ENOSYS;
    return -1;
-@@ -276,7 +273,10 @@ static ssize_t uv__fs_mkdtemp(uv_fs_t* req) {
- }
- 
- 
-+#if !defined(__MVS__) || (__EDC_TARGET > 0x42040000)
-+/* warning: unused variable on z/OS 2.4 and prior */
- static int (*uv__mkostemp)(char*, int);
-+#endif
- 
- 
- static void uv__mkostemp_initonce(void) {
-@@ -771,11 +771,7 @@ static ssize_t uv__fs_readlink(uv_fs_t* req) {
+@@ -765,11 +787,7 @@ static ssize_t uv__fs_readlink(uv_fs_t* req) {
      return -1;
    }
  
@@ -59,51 +80,80 @@ index 239ecda1..cba51319 100644
  
    if (len == -1) {
      uv__free(buf);
-@@ -1197,7 +1193,8 @@ static ssize_t uv__fs_lutime(uv_fs_t* req) {
- #elif defined(__APPLE__)          ||                                          \
-       defined(__DragonFly__)      ||                                          \
-       defined(__FreeBSD__)        ||                                          \
--      defined(__NetBSD__)
-+      defined(__NetBSD__)         ||                                          \
-+      defined(__MVS__)
-   struct timeval tv[2];
-   tv[0] = uv__fs_to_timeval(req->atime);
-   tv[1] = uv__fs_to_timeval(req->mtime);
-@@ -1244,7 +1241,11 @@ static ssize_t uv__fs_copyfile(uv_fs_t* req) {
+@@ -1147,7 +1165,8 @@ static ssize_t uv__fs_utime(uv_fs_t* req) {
+     || defined(__NetBSD__)                                                    \
+     || defined(__OpenBSD__)                                                   \
+     || defined(__linux__)                                                     \
+-    || defined(__sun)
++    || defined(__sun)                                                         \
++    || defined(__MVS__)
+   struct timespec ts[2];
+   ts[0] = uv__fs_to_timespec(req->atime);
+   ts[1] = uv__fs_to_timespec(req->mtime);
+@@ -1157,14 +1176,6 @@ static ssize_t uv__fs_utime(uv_fs_t* req) {
+   buf.actime = req->atime;
+   buf.modtime = req->mtime;
+   return utime(req->path, &buf);
+-#elif defined(__MVS__)
+-  attrib_t atr;
+-  memset(&atr, 0, sizeof(atr));
+-  atr.att_mtimechg = 1;
+-  atr.att_atimechg = 1;
+-  atr.att_mtime = req->mtime;
+-  atr.att_atime = req->atime;
+-  return __lchattr((char*) req->path, &atr, sizeof(atr));
+ #else
+   errno = ENOSYS;
+   return -1;
+@@ -1181,7 +1192,8 @@ static ssize_t uv__fs_lutime(uv_fs_t* req) {
+     || defined(__NetBSD__)                                                    \
+     || defined(__OpenBSD__)                                                   \
+     || defined(__linux__)                                                     \
+-    || defined(__sun)
++    || defined(__sun)                                                         \
++    || defined(__MVS__)
+   struct timespec ts[2];
+   ts[0] = uv__fs_to_timespec(req->atime);
+   ts[1] = uv__fs_to_timespec(req->mtime);
+@@ -1228,7 +1240,11 @@ static ssize_t uv__fs_copyfile(uv_fs_t* req) {
    uv_file dstfd;
    struct stat src_statsbuf;
    struct stat dst_statsbuf;
 +#ifdef __MVS__
 +  struct timeval times[2];
-+#elif
++#else
    struct timespec times[2];
 +#endif
    int dst_flags;
    int result;
    int err;
-@@ -1333,12 +1334,21 @@ static ssize_t uv__fs_copyfile(uv_fs_t* req) {
+@@ -1317,15 +1333,25 @@ static ssize_t uv__fs_copyfile(uv_fs_t* req) {
    times[0].tv_nsec = src_statsbuf.st_atime_n;
    times[1].tv_sec = src_statsbuf.st_mtime;
    times[1].tv_nsec = src_statsbuf.st_mtime_n;
 +#elif defined(__MVS__)
 +  times[0].tv_sec = src_statsbuf.st_atime;
-+  times[0].tv_usec = 0;
 +  times[1].tv_sec = src_statsbuf.st_mtime;
-+  times[1].tv_usec = 0;
  #else
    times[0] = src_statsbuf.st_atim;
    times[1] = src_statsbuf.st_mtim;
  #endif
  
-+#ifdef __MVS__
++#if defined(__MVS__)
 +  if (futimes(dstfd, times) == -1) {
++    err = UV__ERR(errno);
++    goto out;
++  }
 +#else
    if (futimens(dstfd, times) == -1) {
-+#endif
      err = UV__ERR(errno);
      goto out;
    }
-@@ -1391,6 +1401,14 @@ static ssize_t uv__fs_copyfile(uv_fs_t* req) {
++#endif
+ 
+   /*
+    * Change the ownership and permissions of the destination file to match the
+@@ -1375,6 +1401,14 @@ static ssize_t uv__fs_copyfile(uv_fs_t* req) {
    }
  #endif
  
@@ -118,14 +168,3 @@ index 239ecda1..cba51319 100644
    bytes_to_send = src_statsbuf.st_size;
    in_offset = 0;
    while (bytes_to_send != 0) {
-@@ -1521,6 +1539,10 @@ static void uv__to_stat(struct stat* src, uv_stat_t* dst) {
-   dst->st_flags = 0;
-   dst->st_gen = 0;
- #endif
-+
-+#ifdef __MVS__
-+  dst->st_tag = src->st_tag;
-+#endif
- }
- 
- 

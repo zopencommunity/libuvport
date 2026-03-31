@@ -1,5 +1,5 @@
 diff --git a/src/unix/stream.c b/src/unix/stream.c
-index 28c4d546..57bcde8d 100644
+index 18763b47..431f4be0 100644
 --- a/src/unix/stream.c
 +++ b/src/unix/stream.c
 @@ -113,6 +113,10 @@ void uv__stream_init(uv_loop_t* loop,
@@ -37,7 +37,7 @@ index 28c4d546..57bcde8d 100644
        err = UV__ERR(errno);
      else /* Success. */
        stream->flags |= UV_HANDLE_SHUT;
-@@ -1089,6 +1102,23 @@ static void uv__read(uv_stream_t* stream) {
+@@ -1094,6 +1107,23 @@ static void uv__read(uv_stream_t* stream) {
        } else if (errno == ECONNRESET && stream->type == UV_NAMED_PIPE) {
          uv__stream_eof(stream, &buf);
          return;
@@ -61,7 +61,7 @@ index 28c4d546..57bcde8d 100644
  #endif
        } else {
          /* Error. User should call uv_close(). */
-@@ -1174,8 +1204,13 @@ int uv_shutdown(uv_shutdown_t* req, uv_stream_t* stream, uv_shutdown_cb cb) {
+@@ -1179,8 +1209,13 @@ int uv_shutdown(uv_shutdown_t* req, uv_stream_t* stream, uv_shutdown_cb cb) {
    stream->shutdown_req = req;
    stream->flags &= ~UV_HANDLE_WRITABLE;
  
@@ -75,7 +75,7 @@ index 28c4d546..57bcde8d 100644
  
    return 0;
  }
-@@ -1202,6 +1237,19 @@ static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
+@@ -1207,6 +1242,19 @@ static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
    if (events & (POLLIN | POLLERR | POLLHUP))
      uv__read(stream);
  
@@ -95,7 +95,7 @@ index 28c4d546..57bcde8d 100644
    if (uv__stream_fd(stream) == -1)
      return;  /* read_cb closed stream. */
  
-@@ -1222,6 +1270,22 @@ static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
+@@ -1227,13 +1275,46 @@ static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
    if (uv__stream_fd(stream) == -1)
      return;  /* read_cb closed stream. */
  
@@ -118,3 +118,28 @@ index 28c4d546..57bcde8d 100644
    if (events & (POLLOUT | POLLERR | POLLHUP)) {
      uv__write(stream);
      uv__write_callbacks(stream);
+ 
+     /* Write queue drained. */
+-    if (uv__queue_empty(&stream->write_queue))
++    if (uv__queue_empty(&stream->write_queue)) {
+       uv__drain(stream);
++#ifdef __MVS__
++      // TODO(gabylb) - zos: fixes parallel/test-http2-many-writes-and-destroy
++      // and, on 4 CPU zoscan31, parallel/test-worker-http2-stream-terminate
++      // both of which otherwise hang. Not required when epoll (that regresses
++      // other tests) is used instead of poll.
++      if (stream->flags & UV_HANDLE_SHUT &&
++          stream->flags & UV_HANDLE_READING &&
++          stream->flags & UV_HANDLE_READ_PARTIAL &&
++          stream->flags & UV_HANDLE_TCP_NODELAY &&
++          !(stream->flags & UV_HANDLE_TCP_KEEPALIVE) &&
++          !(stream->flags & UV_HANDLE_READ_EOF) &&
++          (events & POLLIN)) {
++        uv_buf_t buf = { NULL, 0 };
++        uv__stream_eof(stream, &buf);
++      }
++#endif
++    }
+   }
+ }
+ 

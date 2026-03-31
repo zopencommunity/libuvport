@@ -1,5 +1,5 @@
 diff --git a/src/unix/tcp.c b/src/unix/tcp.c
-index 799fca77..3ab8ce6a 100644
+index 98970d75..0aaf5bf8 100644
 --- a/src/unix/tcp.c
 +++ b/src/unix/tcp.c
 @@ -30,8 +30,8 @@
@@ -13,7 +13,7 @@ index 799fca77..3ab8ce6a 100644
  #include <ifaddrs.h>
  #endif
  
-@@ -220,14 +220,13 @@ static int uv__is_ipv6_link_local(const struct sockaddr* addr) {
+@@ -226,14 +226,13 @@ static int uv__is_ipv6_link_local(const struct sockaddr* addr) {
  
  
  static int uv__ipv6_link_local_scope_id(void) {
@@ -30,7 +30,7 @@ index 799fca77..3ab8ce6a 100644
  
    if (uv_interface_addresses(&interfaces, &count))
      return 0;
-@@ -244,6 +243,7 @@ static int uv__ipv6_link_local_scope_id(void) {
+@@ -250,6 +249,7 @@ static int uv__ipv6_link_local_scope_id(void) {
    uv_free_interface_addresses(interfaces, count);
  
  #else

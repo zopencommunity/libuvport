@@ -1,5 +1,5 @@
 diff --git a/src/uv-common.c b/src/uv-common.c
-index 2200fe3f..a379c8f9 100644
+index 60ff56b9..f6b4d640 100644
 --- a/src/uv-common.c
 +++ b/src/uv-common.c
 @@ -37,6 +37,10 @@

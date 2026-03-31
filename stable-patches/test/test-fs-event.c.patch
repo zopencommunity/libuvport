@@ -1,0 +1,22 @@
+diff --git a/test/test-fs-event.c b/test/test-fs-event.c
+index f224181f..add8eae1 100644
+--- a/test/test-fs-event.c
++++ b/test/test-fs-event.c
+@@ -484,8 +484,6 @@ TEST_IMPL(fs_event_watch_dir) {
+ TEST_IMPL(fs_event_watch_delete_dir) {
+ #if defined(NO_FS_EVENTS)
+   RETURN_SKIP(NO_FS_EVENTS);
+-#elif defined(__MVS__)
+-  RETURN_SKIP("Directory watching not supported on this platform.");
+ #elif defined(__APPLE__) && defined(__TSAN__)
+   RETURN_SKIP("Times out under TSAN.");
+ #endif
+@@ -1024,8 +1022,6 @@ TEST_IMPL(fs_event_close_with_pending_delete_event) {
+ TEST_IMPL(fs_event_close_in_callback) {
+ #if defined(NO_FS_EVENTS)
+   RETURN_SKIP(NO_FS_EVENTS);
+-#elif defined(__MVS__)
+-  RETURN_SKIP("Directory watching not supported on this platform.");
+ #elif defined(__APPLE__) && defined(__TSAN__)
+   RETURN_SKIP("Times out under TSAN.");
+ #endif
