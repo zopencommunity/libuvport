@@ -1,8 +1,8 @@
 diff --git a/test/test-get-currentexe.c b/test/test-get-currentexe.c
-index c813d3a5..d03a4b24 100644
+index 98acbfd9..50de701c 100644
 --- a/test/test-get-currentexe.c
 +++ b/test/test-get-currentexe.c
-@@ -30,19 +30,33 @@
+@@ -30,16 +30,35 @@
  #define PATHMAX 4096
  extern char executable_path[];
  
@@ -11,9 +11,7 @@ index c813d3a5..d03a4b24 100644
 -#if defined(__QEMU__)
 -  RETURN_SKIP("Test does not currently work in QEMU");
 -#endif
--#if defined(__OpenBSD__)
--  RETURN_SKIP("Test does not currently work in OpenBSD");
--#endif
++
 +static void create_dir(const char *name) {
 +  int r;
 +  uv_fs_t req;
@@ -35,8 +33,9 @@ index c813d3a5..d03a4b24 100644
 +  ASSERT(signo == 0);
 +  uv_close((uv_handle_t*) process, NULL);
 +}
- 
++
 +int test_get_currentexe_impl(int is_child) {
+ 
    char buffer[PATHMAX];
    char path[PATHMAX];
    size_t size;
@@ -45,7 +44,7 @@ index c813d3a5..d03a4b24 100644
    int r;
  
    size = sizeof(buffer) / sizeof(buffer[0]);
-@@ -52,7 +66,11 @@ TEST_IMPL(get_currentexe) {
+@@ -49,7 +68,11 @@ TEST_IMPL(get_currentexe) {
  #ifdef _WIN32
    snprintf(path, sizeof(path), "%s", executable_path);
  #else
@@ -58,7 +57,7 @@ index c813d3a5..d03a4b24 100644
  #endif
  
    match = strstr(buffer, path);
-@@ -107,3 +125,98 @@ TEST_IMPL(get_currentexe) {
+@@ -104,3 +127,98 @@ TEST_IMPL(get_currentexe) {
    ASSERT_EQ(size, strlen(buffer));
    return 0;
  }

@@ -1,13 +1,22 @@
 diff --git a/src/unix/udp.c b/src/unix/udp.c
-index c4a3559d..fb592a7a 100644
+index 0a41391f..09abe4be 100644
 --- a/src/unix/udp.c
 +++ b/src/unix/udp.c
-@@ -1344,7 +1344,7 @@ static int uv__udp_sendmsgv(int fd,
+@@ -1392,7 +1392,7 @@ static int uv__udp_sendmsg1(int fd,
+   /* UDP sockets don't EOF so we don't have to handle r=0 specially,
+    * that only happens when the input was a zero-sized buffer.
+    */
+-  return 0;
++  return (int) r;
+ }
+ 
+ 
+@@ -1441,7 +1441,7 @@ static int uv__udp_sendmsgv(int fd,
  	 */
  
    for (i = 0; i < count; i++, nsent++)
 -    if ((r = uv__udp_sendmsg1(fd, bufs[i], nbufs[i], addrs[i])))
-+    if ((r = uv__udp_sendmsg1(fd, bufs[i], nbufs[i], addrs[i])) < 1)
++    if ((r = uv__udp_sendmsg1(fd, bufs[i], nbufs[i], addrs[i])) < 0)
        goto exit;  /* goto to avoid unused label warning. */
  
  exit:
