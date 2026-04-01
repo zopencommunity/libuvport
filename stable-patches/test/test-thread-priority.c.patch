@@ -1,5 +1,5 @@
 diff --git a/test/test-thread-priority.c b/test/test-thread-priority.c
-index 0aaf2977..8ae2deda 100644
+index acc33855..33d8b99f 100644
 --- a/test/test-thread-priority.c
 +++ b/test/test-thread-priority.c
 @@ -45,6 +45,10 @@ static void simple_task(void *args) {
@@ -13,11 +13,9 @@ index 0aaf2977..8ae2deda 100644
    int priority;
  #ifndef _WIN32
    int min;
-@@ -102,4 +106,5 @@ TEST_IMPL(thread_priority) {
-   uv_sem_destroy(&sem);
+@@ -106,4 +110,5 @@ TEST_IMPL(thread_priority) {
+ #endif
  
    return 0;
--}
-\ No newline at end of file
 +#endif // __MVS__
-+}
+ }

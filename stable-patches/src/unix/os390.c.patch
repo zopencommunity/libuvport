@@ -1,5 +1,5 @@
 diff --git a/src/unix/os390.c b/src/unix/os390.c
-index 1b277292..b5ccc1c0 100644
+index 6ba2f915..de32b6e0 100644
 --- a/src/unix/os390.c
 +++ b/src/unix/os390.c
 @@ -19,19 +19,23 @@
@@ -84,26 +84,23 @@ index 1b277292..b5ccc1c0 100644
  
    if (buffer == NULL || size == NULL || *size == 0)
      return UV_EINVAL;
-@@ -189,11 +199,15 @@ uint64_t uv_get_total_memory(void) {
- uint64_t uv_get_constrained_memory(void) {
-   struct rlimit rl;
+@@ -191,9 +201,13 @@ uint64_t uv_get_constrained_memory(void) {
+   uint64_t memlimit;
+   uint64_t rlimit_limit;
  
 -  /* RLIMIT_MEMLIMIT return value is in megabytes rather than bytes. */
--  if (getrlimit(RLIMIT_MEMLIMIT, &rl) == 0)
 +  /* RLIMIT_MEMLIMIT return value is in megabytes rather than bytes.
 +   * https://www.ibm.com/docs/en/zos/3.1.0?topic=functions-getrlimit-get-current-maximum-resource-consumption
 +   * If > RLIM_INFINITY, user limit likely set to unlimited.
 +   * Otherwise there is no memory limit set if getrlimit failed.
 +   */
+   memlimit = 0;
+-  if (getrlimit(RLIMIT_MEMLIMIT, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY)
 +  if (getrlimit(RLIMIT_MEMLIMIT, &rl) == 0 && rl.rlim_cur < RLIM_INFINITY)
-     return rl.rlim_cur * 1024 * 1024;
+     memlimit = rl.rlim_cur * 1024 * 1024;
  
--  return 0; /* There is no memory limit set. */
-+  return 0;
- }
- 
- 
-@@ -389,6 +403,7 @@ static int uv__interface_addresses_v6(uv_interface_address_t** addresses,
+   /* Also check RLIMIT_AS and RLIMIT_DATA. */
+@@ -400,6 +414,7 @@ static int uv__interface_addresses_v6(uv_interface_address_t** addresses,
      address->netmask.netmask6.sin6_len = p->__nif6e_prefixlen;
      memcpy(&(address->netmask.netmask6.sin6_addr), netmask, 16);
      address->netmask.netmask6.sin6_family = AF_INET6;
@@ -111,7 +108,7 @@ index 1b277292..b5ccc1c0 100644
  
      address->is_internal = p->__nif6e_flags & _NIF6E_FLAGS_LOOPBACK ? 1 : 0;
      address++;
-@@ -585,15 +600,15 @@ void uv_free_interface_addresses(uv_interface_address_t* addresses,
+@@ -596,15 +611,15 @@ void uv_free_interface_addresses(uv_interface_address_t* addresses,
  
  
  void uv__platform_invalidate_fd(uv_loop_t* loop, int fd) {
@@ -130,7 +127,7 @@ index 1b277292..b5ccc1c0 100644
    nfds = (uintptr_t) loop->watchers[loop->nwatchers + 1];
    if (events != NULL)
      /* Invalidate events with same file descriptor */
-@@ -602,8 +617,11 @@ void uv__platform_invalidate_fd(uv_loop_t* loop, int fd) {
+@@ -613,8 +628,11 @@ void uv__platform_invalidate_fd(uv_loop_t* loop, int fd) {
          events[i].fd = -1;
  
    /* Remove the file descriptor from the epoll. */
@@ -143,14 +140,18 @@ index 1b277292..b5ccc1c0 100644
  }
  
  
-@@ -633,114 +651,341 @@ int uv_fs_event_init(uv_loop_t* loop, uv_fs_event_t* handle) {
+@@ -644,114 +662,341 @@ int uv_fs_event_init(uv_loop_t* loop, uv_fs_event_t* handle) {
    return 0;
  }
  
 +STATIC_ASSERT(EPOLL_CTL_ADD < 4);
 +STATIC_ASSERT(EPOLL_CTL_DEL < 4);
 +STATIC_ASSERT(EPOLL_CTL_MOD < 4);
-+
+ 
+-static int os390_regfileint(uv_fs_event_t* handle, char* path) {
+-  uv__os390_epoll* ep;
+-  _RFIS reg_struct;
+-  int rc;
 +struct watcher_list {
 +  RB_ENTRY(watcher_list) entry;
 +  struct uv__queue watchers;
@@ -164,7 +165,7 @@ index 1b277292..b5ccc1c0 100644
 +};
 +
 +static int uv__inotify_fork(uv_loop_t* loop, struct watcher_list* root);
-+static void uv__inotify_read(uv_loop_t* loop,
++void uv__inotify_read(uv_loop_t* loop,
 +                             uv__io_t* w,
 +                             unsigned int revents);
 +static int compare_watchers(const struct watcher_list* a,
@@ -208,14 +209,8 @@ index 1b277292..b5ccc1c0 100644
 +
 +  return uv__inotify_fork(loop, root);
 +}
- 
--static int os390_regfileint(uv_fs_event_t* handle, char* path) {
--  uv__os390_epoll* ep;
--  _RFIS reg_struct;
--  int rc;
- 
--  ep = handle->loop->ep;
--  assert(ep->msg_queue != -1);
++
++
 +static int compare_watchers(const struct watcher_list* a,
 +                            const struct watcher_list* b) {
 +  if (a->wd < b->wd) return -1;
@@ -223,27 +218,29 @@ index 1b277292..b5ccc1c0 100644
 +  return 0;
 +}
  
+-  ep = handle->loop->ep;
+-  assert(ep->msg_queue != -1);
+ 
 -  reg_struct.__rfis_cmd  = _RFIS_REG;
 -  reg_struct.__rfis_qid  = ep->msg_queue;
 -  reg_struct.__rfis_type = 1;
 -  memcpy(reg_struct.__rfis_utok, &handle, sizeof(handle));
- 
--  rc = __w_pioctl(path, _IOCC_REGFILEINT, sizeof(reg_struct), &reg_struct);
--  if (rc != 0)
 +static int init_inotify(uv_loop_t* loop) {
 +  int err;
 +  int fd;
 +
 +  if (loop->inotify_fd != -1)
 +    return 0;
-+
+ 
+-  rc = __w_pioctl(path, _IOCC_REGFILEINT, sizeof(reg_struct), &reg_struct);
+-  if (rc != 0)
 +  fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
 +  if (fd < 0)
      return UV__ERR(errno);
  
 -  memcpy(handle->rfis_rftok, reg_struct.__rfis_rftok,
 -         sizeof(handle->rfis_rftok));
-+  err = uv__io_init_start(loop, &loop->inotify_read_watcher, uv__inotify_read,
++  err = uv__io_init_start(loop, &loop->inotify_read_watcher, UV__INOTIFY_READ,
 +                          fd, POLLIN);
 +  if (err) {
 +    uv__close(fd);
@@ -376,7 +373,7 @@ index 1b277292..b5ccc1c0 100644
 -  rc = __w_pioctl("/", _IOCC_REGFILEINT, sizeof(reg_struct), &reg_struct);
 -  if (rc != 0 && errno != EALREADY && errno != ENOENT)
 -    abort();
-+static void uv__inotify_read(uv_loop_t* loop,
++void uv__inotify_read(uv_loop_t* loop,
 +                             uv__io_t* dummy,
 +                             unsigned int events) {
 +  const struct inotify_event* e;
@@ -389,7 +386,10 @@ index 1b277292..b5ccc1c0 100644
 +  const char *p;
 +  /* needs to be large enough for sizeof(inotify_event) + strlen(path) */
 +  char buf[4096];
-+
+ 
+-  if (handle->path != NULL) {
+-    uv__free(handle->path);
+-    handle->path = NULL;
 +  for (;;) {
 +    do
 +      size = read(loop->inotify_fd, buf, sizeof(buf));
@@ -415,10 +415,7 @@ index 1b277292..b5ccc1c0 100644
 +      w = find_watcher(loop, e->wd);
 +      if (w == NULL)
 +        continue; /* Stale event, no watchers left. */
- 
--  if (handle->path != NULL) {
--    uv__free(handle->path);
--    handle->path = NULL;
++
 +      /* inotify does not return the filename when monitoring a single file
 +       * for modifications. Repurpose the filename for API compatibility.
 +       * I'm not convinced this is a good thing, maybe it should go.
@@ -553,7 +550,7 @@ index 1b277292..b5ccc1c0 100644
  }
  
  
-@@ -755,29 +1000,53 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
+@@ -766,29 +1011,53 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
  
    msglen = msgrcv(ep->msg_queue, &msg, sizeof(msg), 0, IPC_NOWAIT);
  
@@ -618,7 +615,7 @@ index 1b277292..b5ccc1c0 100644
    /* `__rfim_utok` is treated as text when it should be treated as binary while
     * running in ASCII mode, resulting in an unwanted autoconversion.
     */
-@@ -788,7 +1057,9 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
+@@ -799,7 +1068,9 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
    assert((handle->flags & UV_HANDLE_CLOSED) == 0);
    if (uv__is_closing(handle)) {
      uv__handle_stop(handle);
@@ -629,7 +626,7 @@ index 1b277292..b5ccc1c0 100644
      return 0;
    } else if (handle->path == NULL) {
      /* _RFIS_UNREG returned EALREADY. */
-@@ -796,13 +1067,13 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
+@@ -807,13 +1078,13 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
      return 0;
    }
  
@@ -644,7 +641,7 @@ index 1b277292..b5ccc1c0 100644
    handle->cb(handle, uv__basename_r(handle->path), events, 0);
    return 1;
  }
-@@ -811,9 +1082,9 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
+@@ -822,9 +1093,9 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
  void uv__io_poll(uv_loop_t* loop, int timeout) {
    static const int max_safe_timeout = 1789569;
    uv__loop_internal_fields_t* lfields;
@@ -657,7 +654,7 @@ index 1b277292..b5ccc1c0 100644
    uv__os390_epoll* ep;
    int have_signals;
    int real_timeout;
-@@ -836,8 +1107,6 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
+@@ -847,8 +1118,6 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
    lfields = uv__get_internal_fields(loop);
  
    while (!uv__queue_empty(&loop->watcher_queue)) {
@@ -666,7 +663,7 @@ index 1b277292..b5ccc1c0 100644
      q = uv__queue_head(&loop->watcher_queue);
      uv__queue_remove(q);
      uv__queue_init(q);
-@@ -845,13 +1114,11 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
+@@ -856,13 +1125,11 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
  
      assert(w->pevents != 0);
      assert(w->fd >= 0);
@@ -681,7 +678,7 @@ index 1b277292..b5ccc1c0 100644
  
      if (w->events == 0)
        op = EPOLL_CTL_ADD;
-@@ -861,14 +1128,14 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
+@@ -872,14 +1139,14 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
      /* XXX Future optimization: do EPOLL_CTL_MOD lazily if we stop watching
       * events, skip the syscall and squelch the events after epoll_wait().
       */
@@ -699,17 +696,17 @@ index 1b277292..b5ccc1c0 100644
      }
  
 @@ -907,8 +1174,8 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
-      */
-     lfields->current_timeout = timeout;
+       timeout = max_safe_timeout;
  
+     uv__io_poll_prepare(loop, NULL, timeout);
 -    nfds = epoll_wait(loop->ep, events,
 -                      ARRAY_SIZE(events), timeout);
 +    nfds = __epoll_wait(loop->ep, events,
 +                        ARRAY_SIZE(events), timeout);
+     base = loop->time;
+     uv__io_poll_check(loop, NULL);
  
-     /* Update loop->time unconditionally. It's tempting to skip the update when
-      * timeout == 0 (i.e. non-blocking poll) but there is no guarantee that the
-@@ -970,7 +1237,13 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
+@@ -966,7 +1233,13 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
  
        ep = loop->ep;
        if (pe->is_msg) {
@@ -724,7 +721,7 @@ index 1b277292..b5ccc1c0 100644
          nevents++;
          continue;
        }
-@@ -986,7 +1259,7 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
+@@ -982,7 +1255,7 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
           * Ignore all errors because we may be racing with another thread
           * when the file descriptor is closed.
           */
@@ -733,7 +730,7 @@ index 1b277292..b5ccc1c0 100644
          continue;
        }
  
-@@ -1058,13 +1331,3 @@ update_timeout:
+@@ -1054,13 +1327,3 @@ update_timeout:
    }
  }
  

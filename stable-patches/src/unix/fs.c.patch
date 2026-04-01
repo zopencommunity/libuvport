@@ -1,5 +1,5 @@
 diff --git a/src/unix/fs.c b/src/unix/fs.c
-index 717f3fab..7032dc59 100644
+index fc0fe0a2..7f5831f8 100644
 --- a/src/unix/fs.c
 +++ b/src/unix/fs.c
 @@ -83,6 +83,10 @@
@@ -13,17 +13,15 @@ index 717f3fab..7032dc59 100644
  #if defined(_AIX) && _XOPEN_SOURCE <= 600
  extern char *mkdtemp(char *template); /* See issue #740 on AIX < 7 */
  #endif
-@@ -211,7 +215,8 @@ static ssize_t uv__fs_fdatasync(uv_fs_t* req) {
-     || defined(__NetBSD__)                                                    \
+@@ -212,6 +216,7 @@ static ssize_t uv__fs_fdatasync(uv_fs_t* req) {
      || defined(__OpenBSD__)                                                   \
      || defined(__linux__)                                                     \
--    || defined(__sun)
-+    || defined(__sun)                                                         \
-+    || defined(__MVS__)
+     || defined(__sun)                                                         \
++    || defined(__MVS__)                                                       \
+     || defined(__QNX__)
  static struct timespec uv__fs_to_timespec(double time) {
    struct timespec ts;
- 
-@@ -239,6 +244,26 @@ static struct timespec uv__fs_to_timespec(double time) {
+@@ -233,6 +238,26 @@ static struct timespec uv__fs_to_timespec(double time) {
  #endif
  
  
@@ -50,7 +48,7 @@ index 717f3fab..7032dc59 100644
  static ssize_t uv__fs_futime(uv_fs_t* req) {
  #if defined(__APPLE__)                                                        \
      || defined(_AIX71)                                                        \
-@@ -254,13 +279,10 @@ static ssize_t uv__fs_futime(uv_fs_t* req) {
+@@ -249,13 +274,10 @@ static ssize_t uv__fs_futime(uv_fs_t* req) {
    ts[1] = uv__fs_to_timespec(req->mtime);
    return futimens(req->file, ts);
  #elif defined(__MVS__)
@@ -80,17 +78,15 @@ index 717f3fab..7032dc59 100644
  
    if (len == -1) {
      uv__free(buf);
-@@ -1147,7 +1165,8 @@ static ssize_t uv__fs_utime(uv_fs_t* req) {
-     || defined(__NetBSD__)                                                    \
+@@ -1148,6 +1166,7 @@ static ssize_t uv__fs_utime(uv_fs_t* req) {
      || defined(__OpenBSD__)                                                   \
      || defined(__linux__)                                                     \
--    || defined(__sun)
-+    || defined(__sun)                                                         \
-+    || defined(__MVS__)
+     || defined(__sun)                                                         \
++    || defined(__MVS__)                                                       \
+     || defined(__QNX__)
    struct timespec ts[2];
    ts[0] = uv__fs_to_timespec(req->atime);
-   ts[1] = uv__fs_to_timespec(req->mtime);
-@@ -1157,14 +1176,6 @@ static ssize_t uv__fs_utime(uv_fs_t* req) {
+@@ -1158,14 +1177,6 @@ static ssize_t uv__fs_utime(uv_fs_t* req) {
    buf.actime = req->atime;
    buf.modtime = req->mtime;
    return utime(req->path, &buf);
@@ -105,17 +101,15 @@ index 717f3fab..7032dc59 100644
  #else
    errno = ENOSYS;
    return -1;
-@@ -1181,7 +1192,8 @@ static ssize_t uv__fs_lutime(uv_fs_t* req) {
-     || defined(__NetBSD__)                                                    \
+@@ -1183,6 +1194,7 @@ static ssize_t uv__fs_lutime(uv_fs_t* req) {
      || defined(__OpenBSD__)                                                   \
      || defined(__linux__)                                                     \
--    || defined(__sun)
-+    || defined(__sun)                                                         \
-+    || defined(__MVS__)
+     || defined(__sun)                                                         \
++    || defined(__MVS__)                                                       \
+     || defined(__QNX__)
    struct timespec ts[2];
    ts[0] = uv__fs_to_timespec(req->atime);
-   ts[1] = uv__fs_to_timespec(req->mtime);
-@@ -1228,7 +1240,11 @@ static ssize_t uv__fs_copyfile(uv_fs_t* req) {
+@@ -1230,7 +1242,11 @@ static ssize_t uv__fs_copyfile(uv_fs_t* req) {
    uv_file dstfd;
    struct stat src_statsbuf;
    struct stat dst_statsbuf;
@@ -127,7 +121,7 @@ index 717f3fab..7032dc59 100644
    int dst_flags;
    int result;
    int err;
-@@ -1317,15 +1333,25 @@ static ssize_t uv__fs_copyfile(uv_fs_t* req) {
+@@ -1319,15 +1335,25 @@ static ssize_t uv__fs_copyfile(uv_fs_t* req) {
    times[0].tv_nsec = src_statsbuf.st_atime_n;
    times[1].tv_sec = src_statsbuf.st_mtime;
    times[1].tv_nsec = src_statsbuf.st_mtime_n;
@@ -153,7 +147,7 @@ index 717f3fab..7032dc59 100644
  
    /*
     * Change the ownership and permissions of the destination file to match the
-@@ -1375,6 +1401,14 @@ static ssize_t uv__fs_copyfile(uv_fs_t* req) {
+@@ -1377,6 +1403,14 @@ static ssize_t uv__fs_copyfile(uv_fs_t* req) {
    }
  #endif
  
@@ -168,7 +162,7 @@ index 717f3fab..7032dc59 100644
    bytes_to_send = src_statsbuf.st_size;
    in_offset = 0;
    while (bytes_to_send != 0) {
-@@ -1505,6 +1539,10 @@ static void uv__to_stat(struct stat* src, uv_stat_t* dst) {
+@@ -1507,6 +1541,10 @@ static void uv__to_stat(struct stat* src, uv_stat_t* dst) {
    dst->st_flags = 0;
    dst->st_gen = 0;
  #endif
