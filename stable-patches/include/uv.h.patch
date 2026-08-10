@@ -1,8 +1,8 @@
 diff --git a/include/uv.h b/include/uv.h
-index 938e998f..da52fb41 100644
+index da063455..0bf8935c 100644
 --- a/include/uv.h
 +++ b/include/uv.h
-@@ -133,6 +133,7 @@ struct uv__queue {
+@@ -131,6 +131,7 @@ struct uv__queue {
    XX(ENOTSOCK, "socket operation on non-socket")                              \
    XX(ENOTSUP, "operation not supported on socket")                            \
    XX(EOVERFLOW, "value too large for defined data type")                      \
@@ -10,7 +10,7 @@ index 938e998f..da52fb41 100644
    XX(EPERM, "operation not permitted")                                        \
    XX(EPIPE, "broken pipe")                                                    \
    XX(EPROTO, "protocol error")                                                \
-@@ -400,6 +401,9 @@ typedef struct {
+@@ -398,6 +399,9 @@ typedef struct {
    uv_timespec_t st_mtim;
    uv_timespec_t st_ctim;
    uv_timespec_t st_birthtim;
@@ -20,3 +20,15 @@ index 938e998f..da52fb41 100644
  } uv_stat_t;
  
  
+@@ -602,11 +606,6 @@ UV_EXTERN int uv_tcp_nodelay(uv_tcp_t* handle, int enable);
+ UV_EXTERN int uv_tcp_keepalive(uv_tcp_t* handle,
+                                int enable,
+                                unsigned int delay);
+-UV_EXTERN int uv_tcp_keepalive_ex(uv_tcp_t* handle,
+-                                  int on,
+-                                  unsigned int idle,
+-                                  unsigned int intvl,
+-                                  unsigned int cnt);
+ UV_EXTERN int uv_tcp_simultaneous_accepts(uv_tcp_t* handle, int enable);
+ 
+ enum uv_tcp_flags {

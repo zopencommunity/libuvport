@@ -1,5 +1,5 @@
 diff --git a/src/unix/internal.h b/src/unix/internal.h
-index 80fe41f8..40b4205d 100644
+index 80fe41f8..33658352 100644
 --- a/src/unix/internal.h
 +++ b/src/unix/internal.h
 @@ -99,6 +99,14 @@
@@ -26,3 +26,16 @@ index 80fe41f8..40b4205d 100644
  #define uv__inotify_read(loop, w, events) UNREACHABLE()
  #endif
  
+@@ -359,11 +367,7 @@ int uv__slurp(const char* filename, char* buf, size_t len);
+ /* tcp */
+ int uv__tcp_listen(uv_tcp_t* tcp, int backlog, uv_connection_cb cb);
+ int uv__tcp_nodelay(int fd, int on);
+-int uv__tcp_keepalive(int fd,
+-                      int on,
+-                      unsigned int idle,
+-                      unsigned int intvl,
+-                      unsigned int cnt);
++int uv__tcp_keepalive(int fd, int on, unsigned int delay);
+ 
+ /* tty */
+ void uv__tty_close(uv_tty_t* handle);

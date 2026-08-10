@@ -1,0 +1,14 @@
+diff --git a/test/runner-unix.c b/test/runner-unix.c
+index 3d14cb69..8c665fda 100644
+--- a/test/runner-unix.c
++++ b/test/runner-unix.c
+@@ -44,7 +44,9 @@
+ #include <TargetConditionals.h>
+ #endif
+ 
++#if !defined(__MVS__)
+ extern char** environ;
++#endif
+ 
+ static void closefd(int fd) {
+   if (close(fd) == 0 || errno == EINTR || errno == EINPROGRESS)

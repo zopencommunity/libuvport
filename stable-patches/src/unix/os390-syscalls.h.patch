@@ -1,12 +1,12 @@
 diff --git a/src/unix/os390-syscalls.h b/src/unix/os390-syscalls.h
-index d5f3bcf8..a6790913 100644
+index d5f3bcf8..43440d1f 100644
 --- a/src/unix/os390-syscalls.h
 +++ b/src/unix/os390-syscalls.h
 @@ -27,18 +27,12 @@
  #include "internal.h"
  #include <dirent.h>
  #include <poll.h>
-+#include <sys/epoll.h> // for EPOLL_CTL_ADD, MOD, DEL
++#include <sys/epoll.h> // For EPOLL_CTL_ADD, MOD, DEL only.
 +#include <sys/inotify.h>
  #include <pthread.h>
  #include "zos-base.h"
@@ -20,25 +20,30 @@ index d5f3bcf8..a6790913 100644
 -#define UV__O_CLOEXEC             0x80000
 -
 -struct epoll_event {
-+struct __epoll_event {
++struct uv__os390_epoll_event {
    int events;
    int fd;
    int is_msg;
-@@ -52,9 +46,10 @@ typedef struct {
+@@ -51,10 +45,14 @@ typedef struct {
+   int msg_queue;
  } uv__os390_epoll;
  
- /* epoll api */
+-/* epoll api */
 -uv__os390_epoll* epoll_create1(int flags);
 -int epoll_ctl(uv__os390_epoll* ep, int op, int fd, struct epoll_event *event);
 -int epoll_wait(uv__os390_epoll* ep, struct epoll_event *events, int maxevents, int timeout);
-+uv__os390_epoll* __epoll_create1(int flags);
-+int __epoll_ctl(uv__os390_epoll* ep, int op, int fd, struct __epoll_event *event);
-+int __epoll_wait(uv__os390_epoll* ep, struct __epoll_event *events, int maxevents, int timeout);
++/* epoll api (prefixed with uv__os390_ to avoid conflict with sys/epoll.h) */
++uv__os390_epoll* uv__os390_epoll_create1(int flags);
++int uv__os390_epoll_ctl(uv__os390_epoll* ep, int op, int fd,
++                        struct uv__os390_epoll_event *event);
++int uv__os390_epoll_wait(uv__os390_epoll* ep,
++                         struct uv__os390_epoll_event *events,
++                         int maxevents, int timeout);
 +void epoll_queue_close(uv__os390_epoll* lst);
  int epoll_file_close(int fd);
  
  /* utility functions */
-@@ -63,13 +58,7 @@ int scandir(const char* maindir, struct dirent*** namelist,
+@@ -63,13 +61,7 @@ int scandir(const char* maindir, struct dirent*** namelist,
              int (*compar)(const struct dirent **,
              const struct dirent **));
  char *mkdtemp(char* path);

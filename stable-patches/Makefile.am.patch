@@ -1,0 +1,14 @@
+diff --git a/Makefile.am b/Makefile.am
+index cc70ffe4..fe87f40b 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -378,8 +378,8 @@ test_run_tests_CFLAGS += -D_ISOC99_SOURCE \
+                          -D_OPEN_SYS_SOCK_IPV6 \
+                          -D_OPEN_MSGQ_EXT \
+                          -D_XOPEN_SOURCE_EXTENDED \
+-                         -D_ALL_SOURCE \
+                          -D_LARGE_TIME_API \
++                         -D_OPEN_SYS \
+                          -D_OPEN_SYS_FILE_EXT \
+                          -DPATH_MAX=255 \
+                          -qCHARS=signed \

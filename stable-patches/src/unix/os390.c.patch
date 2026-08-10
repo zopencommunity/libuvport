@@ -1,5 +1,5 @@
 diff --git a/src/unix/os390.c b/src/unix/os390.c
-index 6ba2f915..de32b6e0 100644
+index 6ba2f915..8ff0ae5c 100644
 --- a/src/unix/os390.c
 +++ b/src/unix/os390.c
 @@ -19,19 +19,23 @@
@@ -53,7 +53,7 @@ index 6ba2f915..de32b6e0 100644
 +  loop->ep = NULL;
 +  loop->backend_fd = -1;
 +
-+  ep = __epoll_create1(0);
++  ep = uv__os390_epoll_create1(0);
    if (ep == NULL)
      return UV__ERR(errno);
  
@@ -84,23 +84,7 @@ index 6ba2f915..de32b6e0 100644
  
    if (buffer == NULL || size == NULL || *size == 0)
      return UV_EINVAL;
-@@ -191,9 +201,13 @@ uint64_t uv_get_constrained_memory(void) {
-   uint64_t memlimit;
-   uint64_t rlimit_limit;
- 
--  /* RLIMIT_MEMLIMIT return value is in megabytes rather than bytes. */
-+  /* RLIMIT_MEMLIMIT return value is in megabytes rather than bytes.
-+   * https://www.ibm.com/docs/en/zos/3.1.0?topic=functions-getrlimit-get-current-maximum-resource-consumption
-+   * If > RLIM_INFINITY, user limit likely set to unlimited.
-+   * Otherwise there is no memory limit set if getrlimit failed.
-+   */
-   memlimit = 0;
--  if (getrlimit(RLIMIT_MEMLIMIT, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY)
-+  if (getrlimit(RLIMIT_MEMLIMIT, &rl) == 0 && rl.rlim_cur < RLIM_INFINITY)
-     memlimit = rl.rlim_cur * 1024 * 1024;
- 
-   /* Also check RLIMIT_AS and RLIMIT_DATA. */
-@@ -400,6 +414,7 @@ static int uv__interface_addresses_v6(uv_interface_address_t** addresses,
+@@ -400,6 +410,7 @@ static int uv__interface_addresses_v6(uv_interface_address_t** addresses,
      address->netmask.netmask6.sin6_len = p->__nif6e_prefixlen;
      memcpy(&(address->netmask.netmask6.sin6_addr), netmask, 16);
      address->netmask.netmask6.sin6_family = AF_INET6;
@@ -108,14 +92,14 @@ index 6ba2f915..de32b6e0 100644
  
      address->is_internal = p->__nif6e_flags & _NIF6E_FLAGS_LOOPBACK ? 1 : 0;
      address++;
-@@ -596,15 +611,15 @@ void uv_free_interface_addresses(uv_interface_address_t* addresses,
+@@ -596,15 +607,15 @@ void uv_free_interface_addresses(uv_interface_address_t* addresses,
  
  
  void uv__platform_invalidate_fd(uv_loop_t* loop, int fd) {
 -  struct epoll_event* events;
 -  struct epoll_event dummy;
-+  struct __epoll_event* events;
-+  struct __epoll_event dummy;
++  struct uv__os390_epoll_event* events;
++  struct uv__os390_epoll_event dummy;
    uintptr_t i;
    uintptr_t nfds;
  
@@ -123,11 +107,11 @@ index 6ba2f915..de32b6e0 100644
    assert(fd >= 0);
  
 -  events = (struct epoll_event*) loop->watchers[loop->nwatchers];
-+  events = (struct __epoll_event*) loop->watchers[loop->nwatchers];
++  events = (struct uv__os390_epoll_event*) loop->watchers[loop->nwatchers];
    nfds = (uintptr_t) loop->watchers[loop->nwatchers + 1];
    if (events != NULL)
      /* Invalidate events with same file descriptor */
-@@ -613,8 +628,11 @@ void uv__platform_invalidate_fd(uv_loop_t* loop, int fd) {
+@@ -613,8 +624,11 @@ void uv__platform_invalidate_fd(uv_loop_t* loop, int fd) {
          events[i].fd = -1;
  
    /* Remove the file descriptor from the epoll. */
@@ -136,22 +120,22 @@ index 6ba2f915..de32b6e0 100644
 +  dummy.is_msg = 0;
    if (loop->ep != NULL)
 -    epoll_ctl(loop->ep, EPOLL_CTL_DEL, fd, &dummy);
-+    __epoll_ctl(loop->ep, EPOLL_CTL_DEL, fd, &dummy);
++    uv__os390_epoll_ctl(loop->ep, EPOLL_CTL_DEL, fd, &dummy);
  }
  
  
-@@ -644,114 +662,341 @@ int uv_fs_event_init(uv_loop_t* loop, uv_fs_event_t* handle) {
-   return 0;
+@@ -645,113 +659,334 @@ int uv_fs_event_init(uv_loop_t* loop, uv_fs_event_t* handle) {
  }
  
-+STATIC_ASSERT(EPOLL_CTL_ADD < 4);
-+STATIC_ASSERT(EPOLL_CTL_DEL < 4);
-+STATIC_ASSERT(EPOLL_CTL_MOD < 4);
  
 -static int os390_regfileint(uv_fs_event_t* handle, char* path) {
 -  uv__os390_epoll* ep;
 -  _RFIS reg_struct;
 -  int rc;
++STATIC_ASSERT(EPOLL_CTL_ADD < 4);
++STATIC_ASSERT(EPOLL_CTL_DEL < 4);
++STATIC_ASSERT(EPOLL_CTL_MOD < 4);
++
 +struct watcher_list {
 +  RB_ENTRY(watcher_list) entry;
 +  struct uv__queue watchers;
@@ -165,17 +149,22 @@ index 6ba2f915..de32b6e0 100644
 +};
 +
 +static int uv__inotify_fork(uv_loop_t* loop, struct watcher_list* root);
-+void uv__inotify_read(uv_loop_t* loop,
-+                             uv__io_t* w,
-+                             unsigned int revents);
 +static int compare_watchers(const struct watcher_list* a,
 +                            const struct watcher_list* b);
 +static void maybe_free_watcher_list(struct watcher_list* w,
 +                                    uv_loop_t* loop);
-+
+ 
+-  ep = handle->loop->ep;
+-  assert(ep->msg_queue != -1);
 +RB_GENERATE_STATIC(watcher_root, watcher_list, entry, compare_watchers)
-+
-+
+ 
+-  reg_struct.__rfis_cmd  = _RFIS_REG;
+-  reg_struct.__rfis_qid  = ep->msg_queue;
+-  reg_struct.__rfis_type = 1;
+-  memcpy(reg_struct.__rfis_utok, &handle, sizeof(handle));
+ 
+-  rc = __w_pioctl(path, _IOCC_REGFILEINT, sizeof(reg_struct), &reg_struct);
+-  if (rc != 0)
 +static struct watcher_root* uv__inotify_watchers(uv_loop_t* loop) {
 +  /* This cast works because watcher_root is a struct with a pointer as its
 +   * sole member. Such type punning is unsafe in the presence of strict
@@ -195,13 +184,8 @@ index 6ba2f915..de32b6e0 100644
 +  uv__close(loop->backend_fd);
 +  loop->backend_fd = -1;
 +
++  /* TODO(bnoordhuis) Loses items from the submission and completion rings. */
 +  uv__platform_loop_delete(loop);
-+
-+  /*
-+    Nullify the msg queue but don't close it because
-+    it is still being used by the parent.
-+  */
-+  loop->ep = NULL;
 +
 +  err = uv__platform_loop_init(loop);
 +  if (err)
@@ -217,23 +201,15 @@ index 6ba2f915..de32b6e0 100644
 +  if (a->wd > b->wd) return 1;
 +  return 0;
 +}
- 
--  ep = handle->loop->ep;
--  assert(ep->msg_queue != -1);
- 
--  reg_struct.__rfis_cmd  = _RFIS_REG;
--  reg_struct.__rfis_qid  = ep->msg_queue;
--  reg_struct.__rfis_type = 1;
--  memcpy(reg_struct.__rfis_utok, &handle, sizeof(handle));
++
++
 +static int init_inotify(uv_loop_t* loop) {
 +  int err;
 +  int fd;
 +
 +  if (loop->inotify_fd != -1)
 +    return 0;
- 
--  rc = __w_pioctl(path, _IOCC_REGFILEINT, sizeof(reg_struct), &reg_struct);
--  if (rc != 0)
++
 +  fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
 +  if (fd < 0)
      return UV__ERR(errno);
@@ -358,21 +334,7 @@ index 6ba2f915..de32b6e0 100644
 +    uv__free(w);
 +  }
 +}
- 
--  reg_struct.__rfis_cmd  = _RFIS_UNREG;
--  reg_struct.__rfis_qid  = ep->msg_queue;
--  reg_struct.__rfis_type = 1;
--  memcpy(reg_struct.__rfis_rftok, handle->rfis_rftok,
--         sizeof(handle->rfis_rftok));
- 
--  /*
--   * This call will take "/" as the path argument in case we
--   * don't care to supply the correct path. The system will simply
--   * ignore it.
--   */
--  rc = __w_pioctl("/", _IOCC_REGFILEINT, sizeof(reg_struct), &reg_struct);
--  if (rc != 0 && errno != EALREADY && errno != ENOENT)
--    abort();
++
 +void uv__inotify_read(uv_loop_t* loop,
 +                             uv__io_t* dummy,
 +                             unsigned int events) {
@@ -387,14 +349,24 @@ index 6ba2f915..de32b6e0 100644
 +  /* needs to be large enough for sizeof(inotify_event) + strlen(path) */
 +  char buf[4096];
  
--  if (handle->path != NULL) {
--    uv__free(handle->path);
--    handle->path = NULL;
+-  reg_struct.__rfis_cmd  = _RFIS_UNREG;
+-  reg_struct.__rfis_qid  = ep->msg_queue;
+-  reg_struct.__rfis_type = 1;
+-  memcpy(reg_struct.__rfis_rftok, handle->rfis_rftok,
+-         sizeof(handle->rfis_rftok));
 +  for (;;) {
 +    do
 +      size = read(loop->inotify_fd, buf, sizeof(buf));
 +    while (size == -1 && errno == EINTR);
-+
+ 
+-  /*
+-   * This call will take "/" as the path argument in case we
+-   * don't care to supply the correct path. The system will simply
+-   * ignore it.
+-   */
+-  rc = __w_pioctl("/", _IOCC_REGFILEINT, sizeof(reg_struct), &reg_struct);
+-  if (rc != 0 && errno != EALREADY && errno != ENOENT)
+-    abort();
 +    if (size == -1) {
 +      assert(errno == EAGAIN || errno == EWOULDBLOCK);
 +      break;
@@ -405,7 +377,12 @@ index 6ba2f915..de32b6e0 100644
 +    /* Now we have one or more inotify_event structs. */
 +    for (p = buf; p < buf + size; p += sizeof(*e) + e->len) {
 +      e = (const struct inotify_event*) p;
-+
+ 
+-  if (handle->path != NULL) {
+-    uv__free(handle->path);
+-    handle->path = NULL;
++      // TODO(gabylb): zos - check if ok to overwrite events arg here (as linux.c
++      // does); see https://github.ibm.com/open-z/node/pull/1070#discussion_r13138530
 +      events = 0;
 +      if (e->mask & (IN_ATTRIB|IN_MODIFY))
 +        events |= UV_CHANGE;
@@ -550,23 +527,21 @@ index 6ba2f915..de32b6e0 100644
  }
  
  
-@@ -766,29 +1011,53 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
+@@ -766,26 +1001,47 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
  
    msglen = msgrcv(ep->msg_queue, &msg, sizeof(msg), 0, IPC_NOWAIT);
  
 -  if (msglen == -1 && errno == ENOMSG)
 -    return 0;
 -
--  if (msglen == -1)
+   if (msglen == -1)
 -    abort();
-+  if (msglen == -1) {
 +    if (errno == ENOMSG)
 +      return 0;
 +    else if (errno == EINVAL)
 +      return -1;
 +    else
 +      abort();
-+  }
  
    events = 0;
    if (msg.__rfim_event == _RFIM_ATTR || msg.__rfim_event == _RFIM_WRITE)
@@ -576,8 +551,7 @@ index 6ba2f915..de32b6e0 100644
 -  else if (msg.__rfim_event == 156)
 -    /* TODO(gabylb): zos - this event should not happen, need to investigate.
 +  else if (msg.__rfim_event == 156) {
-+    /* TODO(gabylb): still needed? */
-+    /* TODO(gabylb): investigate why this event is occuring as it should
++    /* TODO(gabylb): zos - investigate why this event is occuring as it should
 +     * not happen based on https://github.ibm.com/open-z/node-build/issues/199.
 +     *
 +     * This (undocumented?) event seems to occur when the watched file
@@ -585,10 +559,7 @@ index 6ba2f915..de32b6e0 100644
 +     * on save (for vim, that's when backupcopy=no|auto), which causes
 +     * __w_pioctl to fail as the file wasn't yet created; the sleep is
 +     * to help resolve the rename-create issue.
-      *
--     * This event seems to occur when the watched file is [re]moved, or an
--     * editor (like vim) renames then creates the file on save (for vim, that's
--     * when backupcopy=no|auto).
++     *
 +     * This is a temporary workaround because on extremely busy systems,
 +     * timeouts cannot guarantee deterministic behaviour. Since the inode
 +     * number changes, they are technically NOT the same file. Thus this kind
@@ -596,7 +567,10 @@ index 6ba2f915..de32b6e0 100644
 +     * application itself should be adjusted to deal with time gap. The current
 +     * monitoring method has a gap, when inotify becomes availlable, we should
 +     * switch to it.
-+     *
+      *
+-     * This event seems to occur when the watched file is [re]moved, or an
+-     * editor (like vim) renames then creates the file on save (for vim, that's
+-     * when backupcopy=no|auto).
 +     * See: https://github.ibm.com/open-z/node-build/issues/656
 +     *
 +     * TODO: zos - resolve this issue on z/OS for V2R4 if possible, and
@@ -611,11 +585,7 @@ index 6ba2f915..de32b6e0 100644
      /* Some event that we are not interested in. */
      return 0;
  
-+  /* TODO(gabylb): still needed? */
-   /* `__rfim_utok` is treated as text when it should be treated as binary while
-    * running in ASCII mode, resulting in an unwanted autoconversion.
-    */
-@@ -799,7 +1068,9 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
+@@ -799,7 +1055,9 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
    assert((handle->flags & UV_HANDLE_CLOSED) == 0);
    if (uv__is_closing(handle)) {
      uv__handle_stop(handle);
@@ -626,14 +596,7 @@ index 6ba2f915..de32b6e0 100644
      return 0;
    } else if (handle->path == NULL) {
      /* _RFIS_UNREG returned EALREADY. */
-@@ -807,13 +1078,13 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
-     return 0;
-   }
- 
-+  /* TODO(gabylb): still needed? */
-   /* The file is implicitly unregistered when the change notification is
-    * sent, only one notification is sent per registration. So we need to
-    * re-register interest in a file after each change notification we
+@@ -813,7 +1071,6 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
     * receive.
     */
    assert(handle->path != NULL);
@@ -641,35 +604,34 @@ index 6ba2f915..de32b6e0 100644
    handle->cb(handle, uv__basename_r(handle->path), events, 0);
    return 1;
  }
-@@ -822,9 +1093,9 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
+@@ -822,9 +1079,9 @@ static int os390_message_queue_handler(uv__os390_epoll* ep) {
  void uv__io_poll(uv_loop_t* loop, int timeout) {
    static const int max_safe_timeout = 1789569;
    uv__loop_internal_fields_t* lfields;
 -  struct epoll_event events[1024];
 -  struct epoll_event* pe;
 -  struct epoll_event e;
-+  struct __epoll_event events[1024];
-+  struct __epoll_event* pe;
-+  struct __epoll_event e;
++  struct uv__os390_epoll_event events[1024];
++  struct uv__os390_epoll_event* pe;
++  struct uv__os390_epoll_event e;
    uv__os390_epoll* ep;
    int have_signals;
    int real_timeout;
-@@ -847,8 +1118,6 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
-   lfields = uv__get_internal_fields(loop);
+@@ -848,7 +1105,6 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
  
    while (!uv__queue_empty(&loop->watcher_queue)) {
--    uv_stream_t* stream;
+     uv_stream_t* stream;
 -
      q = uv__queue_head(&loop->watcher_queue);
      uv__queue_remove(q);
      uv__queue_init(q);
-@@ -856,13 +1125,11 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
- 
+@@ -857,12 +1113,13 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
      assert(w->pevents != 0);
      assert(w->fd >= 0);
--
+ 
 -    stream= container_of(w, uv_stream_t, io_watcher);
--
++    stream = container_of(w, uv_stream_t, io_watcher);
+ 
      assert(w->fd < (int) loop->nwatchers);
  
      e.events = w->pevents;
@@ -678,12 +640,12 @@ index 6ba2f915..de32b6e0 100644
  
      if (w->events == 0)
        op = EPOLL_CTL_ADD;
-@@ -872,14 +1139,14 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
+@@ -872,14 +1129,14 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
      /* XXX Future optimization: do EPOLL_CTL_MOD lazily if we stop watching
       * events, skip the syscall and squelch the events after epoll_wait().
       */
 -    if (epoll_ctl(loop->ep, op, w->fd, &e)) {
-+    if (__epoll_ctl(loop->ep, op, w->fd, &e)) {
++    if (uv__os390_epoll_ctl(loop->ep, op, w->fd, &e)) {
        if (errno != EEXIST)
          abort();
  
@@ -691,22 +653,24 @@ index 6ba2f915..de32b6e0 100644
  
        /* We've reactivated a file descriptor that's been watched before. */
 -      if (epoll_ctl(loop->ep, EPOLL_CTL_MOD, w->fd, &e))
-+      if (__epoll_ctl(loop->ep, EPOLL_CTL_MOD, w->fd, &e))
++      if (uv__os390_epoll_ctl(loop->ep, EPOLL_CTL_MOD, w->fd, &e))
          abort();
      }
  
-@@ -907,8 +1174,8 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
+@@ -907,11 +1164,10 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
        timeout = max_safe_timeout;
  
      uv__io_poll_prepare(loop, NULL, timeout);
 -    nfds = epoll_wait(loop->ep, events,
--                      ARRAY_SIZE(events), timeout);
-+    nfds = __epoll_wait(loop->ep, events,
-+                        ARRAY_SIZE(events), timeout);
++    nfds = uv__os390_epoll_wait(loop->ep, events,
+                       ARRAY_SIZE(events), timeout);
      base = loop->time;
      uv__io_poll_check(loop, NULL);
+-
+     if (nfds == 0) {
+       assert(timeout != -1);
  
-@@ -966,7 +1233,13 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
+@@ -966,7 +1222,13 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
  
        ep = loop->ep;
        if (pe->is_msg) {
@@ -715,25 +679,26 @@ index 6ba2f915..de32b6e0 100644
 +          /* The user has deleted the System V message queue. Highly likely
 +           * that the process is being shut down. So stop listening to it.
 +           */
-+          __epoll_ctl(loop->ep, EPOLL_CTL_DEL, ep->msg_queue, pe);
++          uv__os390_epoll_ctl(loop->ep, EPOLL_CTL_DEL, ep->msg_queue, pe);
 +          loop->backend_fd = -1;
 +        }
          nevents++;
          continue;
        }
-@@ -982,7 +1255,7 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
+@@ -982,7 +1244,7 @@ void uv__io_poll(uv_loop_t* loop, int timeout) {
           * Ignore all errors because we may be racing with another thread
           * when the file descriptor is closed.
           */
 -        epoll_ctl(loop->ep, EPOLL_CTL_DEL, fd, pe);
-+        __epoll_ctl(loop->ep, EPOLL_CTL_DEL, fd, pe);
++        uv__os390_epoll_ctl(loop->ep, EPOLL_CTL_DEL, fd, pe);
          continue;
        }
  
-@@ -1054,13 +1327,3 @@ update_timeout:
+@@ -1053,14 +1315,3 @@ update_timeout:
+     timeout = real_timeout;
    }
  }
- 
+-
 -
 -int uv__io_fork(uv_loop_t* loop) {
 -  /*

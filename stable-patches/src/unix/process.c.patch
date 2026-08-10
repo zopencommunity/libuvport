@@ -1,8 +1,14 @@
 diff --git a/src/unix/process.c b/src/unix/process.c
-index 43e6b798..08cb113a 100644
+index 539e7d94..eb81771e 100644
 --- a/src/unix/process.c
 +++ b/src/unix/process.c
-@@ -56,7 +56,8 @@ extern char **environ;
+@@ -51,12 +51,13 @@
+ #  define POSIX_SPAWN_SETSID 1024
+ # endif
+ 
+-#else
++#elif !defined(__MVS__)
+ extern char **environ;
  #endif
  
  #if defined(__linux__) || \

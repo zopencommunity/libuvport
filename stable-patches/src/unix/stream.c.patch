@@ -1,8 +1,8 @@
 diff --git a/src/unix/stream.c b/src/unix/stream.c
-index 08a18314..31b42ccb 100644
+index 08a18314..1ce39878 100644
 --- a/src/unix/stream.c
 +++ b/src/unix/stream.c
-@@ -112,6 +112,12 @@ void uv__stream_init(uv_loop_t* loop,
+@@ -112,6 +112,10 @@ void uv__stream_init(uv_loop_t* loop,
    stream->select = NULL;
  #endif /* defined(__APPLE_) */
  
@@ -10,12 +10,19 @@ index 08a18314..31b42ccb 100644
 +  stream->need_drain = 0;
 +#endif
 +
-+
-+
    uv__io_init(&stream->io_watcher, UV__STREAM_IO, -1);
  }
  
-@@ -625,6 +631,9 @@ int uv_listen(uv_stream_t* stream, int backlog, uv_connection_cb cb) {
+@@ -416,7 +420,7 @@ int uv__stream_open(uv_stream_t* stream, int fd, int flags) {
+ 
+     /* TODO Use delay the user passed in. */
+     if ((stream->flags & UV_HANDLE_TCP_KEEPALIVE) &&
+-        uv__tcp_keepalive(fd, 1, 60, 1, 10)) {
++        uv__tcp_keepalive(fd, 1, 60)) {
+       return UV__ERR(errno);
+     }
+   }
+@@ -625,6 +629,9 @@ int uv_listen(uv_stream_t* stream, int backlog, uv_connection_cb cb) {
  static void uv__drain(uv_stream_t* stream) {
    uv_shutdown_t* req;
    int err;
@@ -25,7 +32,7 @@ index 08a18314..31b42ccb 100644
  
    assert(uv__queue_empty(&stream->write_queue));
    if (!(stream->flags & UV_HANDLE_CLOSING)) {
-@@ -647,7 +656,13 @@ static void uv__drain(uv_stream_t* stream) {
+@@ -647,7 +654,13 @@ static void uv__drain(uv_stream_t* stream) {
      if (stream->flags & UV_HANDLE_CLOSING)
        /* The user destroyed the stream before we got to do the shutdown. */
        err = UV_ECANCELED;
@@ -39,7 +46,7 @@ index 08a18314..31b42ccb 100644
        err = UV__ERR(errno);
      else /* Success. */
        stream->flags |= UV_HANDLE_SHUT;
-@@ -1091,6 +1106,23 @@ static void uv__read(uv_stream_t* stream) {
+@@ -1091,6 +1104,23 @@ static void uv__read(uv_stream_t* stream) {
        } else if (errno == ECONNRESET && stream->type == UV_NAMED_PIPE) {
          uv__stream_eof(stream, &buf);
          return;
@@ -63,7 +70,7 @@ index 08a18314..31b42ccb 100644
  #endif
        } else {
          /* Error. User should call uv_close(). */
-@@ -1180,8 +1212,13 @@ int uv_shutdown(uv_shutdown_t* req, uv_stream_t* stream, uv_shutdown_cb cb) {
+@@ -1180,8 +1210,13 @@ int uv_shutdown(uv_shutdown_t* req, uv_stream_t* stream, uv_shutdown_cb cb) {
    stream->shutdown_req = req;
    stream->flags &= ~UV_HANDLE_WRITABLE;
  
@@ -77,7 +84,7 @@ index 08a18314..31b42ccb 100644
  
    return 0;
  }
-@@ -1207,6 +1244,21 @@ void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
+@@ -1207,6 +1242,19 @@ void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
    if (events & (POLLIN | POLLERR))
      uv__read(stream);
  
@@ -94,12 +101,10 @@ index 08a18314..31b42ccb 100644
 +    events |= POLLHUP;
 +#endif
 +
-+
-+
    if (uv__stream_fd(stream) == -1)
      return;  /* read_cb closed stream. */
  
-@@ -1229,13 +1281,45 @@ void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
+@@ -1229,13 +1277,45 @@ void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
    if (uv__stream_fd(stream) == -1)
      return;  /* read_cb closed stream. */
  
